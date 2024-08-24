@@ -2,10 +2,13 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/spf13/viper"
 )
 
 type model struct {
@@ -80,9 +83,31 @@ func (m model) View() string {
 }
 
 func main() {
+	loadConfig()
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
+	}
+}
+
+func loadConfig() {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		log.Fatalf("Could not find config dir. Aborting. %s", err)
+	}
+	fmt.Println("the configdir is ", configDir)
+	configFile := filepath.Join(configDir, "timekeeper", "config.yml")
+	err = os.Mkdir(filepath.Dir(configFile), 0755)
+	if err != nil && !os.IsExist(err) {
+		log.Fatalf("could not create config folder %v", err)
+	}
+	fmt.Println("the configfile is ", configFile)
+	viper.SetConfigFile(configFile)
+	viper.SetDefault("someValue", "foobar")
+	viper.Set("foo", "bar")
+	err = viper.WriteConfig()
+	if err != nil {
+		fmt.Printf("I got an error %v", err)
 	}
 }
