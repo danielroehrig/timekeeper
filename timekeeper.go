@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/ostafen/clover/v2"
 	"github.com/spf13/viper"
 )
 
@@ -84,6 +85,8 @@ func (m model) View() string {
 
 func main() {
 	loadConfig()
+	db := openDatabase()
+	defer closeDatabase(db)
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
@@ -91,23 +94,41 @@ func main() {
 	}
 }
 
+func openDatabase() *clover.DB {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		log.Fatalf("could not find config dir. Aborting. %s", err)
+	}
+	db, err := clover.Open(filepath.Join(configDir, "timekeeper"))
+	if err != nil {
+		log.Fatalf("could not open database. Aborting. %s", err)
+	}
+	return db
+}
+
+func closeDatabase(db *clover.DB) {
+	log.Printf("closing database file")
+	err := db.Close()
+	if err != nil {
+		log.Fatalf("could not close db. %s", err)
+	}
+}
+
 func loadConfig() {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
-		log.Fatalf("Could not find config dir. Aborting. %s", err)
+		log.Fatalf("could not find config dir. Aborting. %s", err)
 	}
-	fmt.Println("the configdir is ", configDir)
 	configFile := filepath.Join(configDir, "timekeeper", "config.yml")
 	err = os.Mkdir(filepath.Dir(configFile), 0755)
 	if err != nil && !os.IsExist(err) {
 		log.Fatalf("could not create config folder %v", err)
 	}
-	fmt.Println("the configfile is ", configFile)
 	viper.SetConfigFile(configFile)
 	viper.SetDefault("someValue", "foobar")
 	viper.Set("foo", "bar")
 	err = viper.WriteConfig()
 	if err != nil {
-		fmt.Printf("I got an error %v", err)
+		fmt.Printf("could not write to config %v", err)
 	}
 }
