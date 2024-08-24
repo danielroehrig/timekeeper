@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/danielroehrig/timekeeper/themes"
 	"log"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ type model struct {
 	choices  []string
 	cursor   int
 	selected map[int]struct{}
+	theme    themes.Theme
 }
 
 func initialModel() model {
