@@ -24,8 +24,15 @@ func initialModel() model {
 	return model{
 		choices:  []string{"test 1", "test2"},
 		selected: make(map[int]struct{}),
+		theme:    themes.TokyoNight,
 	}
 }
+
+var style = lipgloss.
+	NewStyle().
+	Bold(true).
+	PaddingTop(2).
+	PaddingLeft(4)
 
 func (m model) Init() tea.Cmd {
 	return nil
@@ -57,17 +64,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-var style = lipgloss.
-	NewStyle().
-	Bold(true).
-	Foreground(lipgloss.Color("#FAFAFA")).
-	Background(lipgloss.Color("#7D56F4")).
-	PaddingTop(2).
-	PaddingLeft(4).
-	Width(42)
-
 func (m model) View() string {
-	s := "What should\n\n"
+	var newStyle = lipgloss.NewStyle().Foreground(m.theme.Foreground).Inherit(style)
+	var headline = lipgloss.NewStyle().Bold(true).Foreground(m.theme.AltAccent).Border(lipgloss.RoundedBorder())
+
+	s := headline.Render("Timekeeper")
 	for i, choice := range m.choices {
 		cursor := " "
 		if m.cursor == i {
@@ -78,7 +79,7 @@ func (m model) View() string {
 			checked = "x"
 		}
 
-		s += style.Render(fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice))
+		s += newStyle.Render(fmt.Sprintf("\n%s [%s] %s\n", cursor, checked, choice))
 	}
 
 	s += "\nPress q\n"
