@@ -4,7 +4,7 @@ import "time"
 
 type Entry struct {
 	Start time.Time
-	End   time.Time
+	End   *time.Time
 	Name  string
 }
 

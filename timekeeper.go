@@ -57,14 +57,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "enter":
+			e := entries.Entry{
+				Start: time.Now(),
+				End:   nil,
+				Name:  m.entryInput.Value(),
+			}
 			doc := clover.NewDocument()
-			doc.Set("name", m.entryInput.Value())
-			doc.Set("start", time.Now())
+			doc.Set("name", e.Name)
+			doc.Set("start", e.Start)
 			doc.Set("end", nil)
 			_, err := db.InsertOne("entries", doc)
 			if err != nil {
 				log.Fatalf("Could not write to database: %v", err)
 			}
+			m.entries = append(m.entries, &e)
+			m.entryList.InsertItem(0, &e)
+			m.entryInput.Reset()
+			return m, nil
 		}
 	}
 	m.entryInput, cmd = m.entryInput.Update(msg)
@@ -122,9 +131,9 @@ func loadEntries(db *clover.DB) []list.Item {
 		log.Fatalf("could not list entries. Aborting. %s", err)
 	}
 	entry := &struct {
-		Name  string    `clover:"name"`
-		End   time.Time `clover:"end"`
-		Start time.Time `clover:"start"`
+		Name  string     `clover:"name"`
+		End   *time.Time `clover:"end"`
+		Start time.Time  `clover:"start"`
 	}{}
 	items := make([]list.Item, 0, len(docs))
 	for _, doc := range docs {
