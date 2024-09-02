@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+const collectionName = "entries"
+
 func OpenDatabase() *clover.DB {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
@@ -20,12 +22,12 @@ func OpenDatabase() *clover.DB {
 		log.Fatalf("could not open database. Aborting. %s", err)
 	}
 
-	hasEntriesCollection, err := db.HasCollection("entries")
+	hasEntriesCollection, err := db.HasCollection(collectionName)
 	if err != nil {
 		log.Fatalf("could not check if there are entries collection. Aborting. %s", err)
 	}
 	if !hasEntriesCollection {
-		err = db.CreateCollection("entries")
+		err = db.CreateCollection(collectionName)
 		if err != nil {
 			log.Fatalf("could not create collection. Aborting. %s", err)
 		}
@@ -34,7 +36,7 @@ func OpenDatabase() *clover.DB {
 }
 
 func LoadEntries(db *clover.DB) []list.Item {
-	docs, err := db.Query("entries").FindAll()
+	docs, err := db.Query(collectionName).FindAll()
 	if err != nil {
 		log.Fatalf("could not list entries. Aborting. %s", err)
 	}
@@ -45,7 +47,10 @@ func LoadEntries(db *clover.DB) []list.Item {
 	}{}
 	items := make([]list.Item, 0, len(docs))
 	for _, doc := range docs {
-		doc.Unmarshal(entry)
+		err := doc.Unmarshal(entry)
+		if err != nil {
+			log.Fatalf("could not unmarshal document. Aborting. %s", err)
+		}
 		items = append(items, &models.Entry{
 			Start: entry.Start,
 			End:   entry.End,
@@ -56,10 +61,13 @@ func LoadEntries(db *clover.DB) []list.Item {
 }
 
 func CloseDatabase(db *clover.DB) {
-	db.ExportCollection("entries", "entries.json")
 	log.Printf("closing database file")
 	err := db.Close()
 	if err != nil {
 		log.Fatalf("could not close db. %s", err)
 	}
+}
+
+func ExportEntries(db *clover.DB) error {
+	return db.ExportCollection(collectionName, "entries.json")
 }
