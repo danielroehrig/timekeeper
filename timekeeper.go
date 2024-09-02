@@ -20,10 +20,11 @@ import (
 )
 
 type model struct {
-	entryInput textinput.Model
-	entryList  list.Model
-	entries    []*models.Entry
-	theme      themes.Theme
+	entryInput    textinput.Model
+	taskIsRunning bool
+	entryList     list.Model
+	entries       []*models.Entry
+	theme         themes.Theme
 }
 
 func initialModel() model {
@@ -31,9 +32,14 @@ func initialModel() model {
 	entryText.Placeholder = "What are you doing right now?"
 	entryText.Focus()
 	loadedEntries := dbaccess.LoadEntries(db)
+	listEntries := make([]list.Item, 0, len(loadedEntries))
+	for _, entry := range loadedEntries {
+		listEntries = append(listEntries, entry)
+	}
+
 	return model{
 		entryInput: entryText,
-		entryList:  list.New(loadedEntries, ui.EntryListDelegate{}, 40, 10),
+		entryList:  list.New(listEntries, ui.EntryListDelegate{}, 40, 10),
 		theme:      themes.TokyoNight,
 	}
 }
@@ -58,21 +64,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "enter":
-			e := models.Entry{
+			e := &models.Entry{
 				Start: time.Now(),
 				End:   nil,
 				Name:  m.entryInput.Value(),
 			}
-			doc := clover.NewDocument()
-			doc.Set("name", e.Name)
-			doc.Set("start", e.Start)
-			doc.Set("end", nil)
-			_, err := db.InsertOne("models", doc)
+			err := dbaccess.AddEntry(db, e)
 			if err != nil {
 				log.Fatalf("Could not write to database: %v", err)
 			}
-			m.entries = append(m.entries, &e)
-			m.entryList.InsertItem(0, &e)
+			m.entries = append(m.entries, e)
+			m.entryList.InsertItem(0, e)
 			m.entryInput.Reset()
 			return m, nil
 		}
@@ -82,8 +84,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	var headline = lipgloss.NewStyle().Bold(true).Foreground(m.theme.AltAccent).Border(lipgloss.RoundedBorder())
-	var inputStyle = lipgloss.NewStyle().Bold(true).Foreground(m.theme.Accent).Border(lipgloss.RoundedBorder())
+	var headline = lipgloss.NewStyle().Bold(true).Foreground(m.theme.AltAccent).PaddingLeft(2).PaddingTop(1).MarginBottom(1)
+	var inputStyle = lipgloss.NewStyle().Bold(true).Foreground(m.theme.Accent).MarginBottom(2)
 
 	s := headline.Render("Timekeeper")
 	s += fmt.Sprintf("\n%s", inputStyle.Render(m.entryInput.View()))
