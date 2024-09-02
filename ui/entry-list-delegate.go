@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/danielroehrig/timekeeper/entries"
+	"github.com/danielroehrig/timekeeper/models"
 	"io"
 )
 
 type EntryListDelegate struct{}
 
 func (d EntryListDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
-	e, ok := item.(*entries.Entry)
+	e, ok := item.(*models.Entry)
 	if !ok {
 		return
 	}

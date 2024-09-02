@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/danielroehrig/timekeeper/entries"
+	dbaccess "github.com/danielroehrig/timekeeper/db"
+	"github.com/danielroehrig/timekeeper/models"
 	"github.com/danielroehrig/timekeeper/themes"
 	"github.com/danielroehrig/timekeeper/ui"
 	"log"
@@ -21,7 +22,7 @@ import (
 type model struct {
 	entryInput textinput.Model
 	entryList  list.Model
-	entries    []*entries.Entry
+	entries    []*models.Entry
 	theme      themes.Theme
 }
 
@@ -29,7 +30,7 @@ func initialModel() model {
 	entryText := textinput.New()
 	entryText.Placeholder = "What are you doing right now?"
 	entryText.Focus()
-	entrs := loadEntries(db)
+	entrs := dbaccess.LoadEntries(db)
 	return model{
 		entryInput: entryText,
 		entryList:  list.New(entrs, ui.EntryListDelegate{}, 40, 10),
@@ -57,7 +58,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "enter":
-			e := entries.Entry{
+			e := models.Entry{
 				Start: time.Now(),
 				End:   nil,
 				Name:  m.entryInput.Value(),
@@ -66,7 +67,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			doc.Set("name", e.Name)
 			doc.Set("start", e.Start)
 			doc.Set("end", nil)
-			_, err := db.InsertOne("entries", doc)
+			_, err := db.InsertOne("models", doc)
 			if err != nil {
 				log.Fatalf("Could not write to database: %v", err)
 			}
@@ -92,67 +93,13 @@ func (m model) View() string {
 
 func main() {
 	loadConfig()
-	db = openDatabase()
+	db = dbaccess.OpenDatabase()
 
-	defer closeDatabase(db)
+	defer dbaccess.CloseDatabase(db)
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
-	}
-}
-
-func openDatabase() *clover.DB {
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		log.Fatalf("could not find config dir. Aborting. %s", err)
-	}
-	db, err := clover.Open(filepath.Join(configDir, "timekeeper"))
-	if err != nil {
-		log.Fatalf("could not open database. Aborting. %s", err)
-	}
-
-	hasEntriesCollection, err := db.HasCollection("entries")
-	if err != nil {
-		log.Fatalf("could not check if there are entries collection. Aborting. %s", err)
-	}
-	if !hasEntriesCollection {
-		err = db.CreateCollection("entries")
-		if err != nil {
-			log.Fatalf("could not create collection. Aborting. %s", err)
-		}
-	}
-	return db
-}
-
-func loadEntries(db *clover.DB) []list.Item {
-	docs, err := db.Query("entries").FindAll()
-	if err != nil {
-		log.Fatalf("could not list entries. Aborting. %s", err)
-	}
-	entry := &struct {
-		Name  string     `clover:"name"`
-		End   *time.Time `clover:"end"`
-		Start time.Time  `clover:"start"`
-	}{}
-	items := make([]list.Item, 0, len(docs))
-	for _, doc := range docs {
-		doc.Unmarshal(entry)
-		items = append(items, &entries.Entry{
-			Start: entry.Start,
-			End:   entry.End,
-			Name:  entry.Name,
-		})
-	}
-	return items
-}
-
-func closeDatabase(db *clover.DB) {
-	db.ExportCollection("entries", "entries.json")
-	log.Printf("closing database file")
-	err := db.Close()
-	if err != nil {
-		log.Fatalf("could not close db. %s", err)
 	}
 }
 
