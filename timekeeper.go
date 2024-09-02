@@ -30,10 +30,10 @@ func initialModel() model {
 	entryText := textinput.New()
 	entryText.Placeholder = "What are you doing right now?"
 	entryText.Focus()
-	entrs := dbaccess.LoadEntries(db)
+	loadedEntries := dbaccess.LoadEntries(db)
 	return model{
 		entryInput: entryText,
-		entryList:  list.New(entrs, ui.EntryListDelegate{}, 40, 10),
+		entryList:  list.New(loadedEntries, ui.EntryListDelegate{}, 40, 10),
 		theme:      themes.TokyoNight,
 	}
 }
