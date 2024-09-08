@@ -60,7 +60,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		return m, m.currentState.KeyPressed(msg.String())
+		return m, m.currentState.KeyPressed(msg)
 	case ui.AddEntryMsg:
 		return m, addNewEntryToDatabase(db, msg.Description)
 	case EntriesLoadedMsg:
@@ -69,6 +69,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case EntryAddedMsg:
 		m.entryList.InsertItem(0, msg.entry)
+		s := &ui.RunningTaskModel{Entry: msg.entry}
+		return m, ui.ChangeState(s)
+	case ui.StateChangeMsg:
+		log.Println("Received state change")
+		m.currentState = msg.NextState
 		return m, nil
 	}
 	m.currentState.Update(msg)

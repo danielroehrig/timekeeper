@@ -23,7 +23,8 @@ func NewInputModel() *InputModel {
 	}
 }
 
-func (i *InputModel) KeyPressed(key string) tea.Cmd {
+func (i *InputModel) KeyPressed(msg tea.KeyMsg) tea.Cmd {
+	key := msg.String()
 	switch key {
 	case "ctrl+c":
 		return tea.Quit
@@ -32,7 +33,9 @@ func (i *InputModel) KeyPressed(key string) tea.Cmd {
 			return AddEntryMsg{Description: i.input.Value()}
 		}
 	}
-	return nil
+	m, cmd := i.input.Update(msg)
+	i.input = m
+	return cmd
 }
 
 func (i *InputModel) Update(msg tea.Msg) tea.Cmd {
