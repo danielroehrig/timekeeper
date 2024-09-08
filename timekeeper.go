@@ -30,6 +30,10 @@ type EntriesLoadedMsg struct {
 	entries []*models.Entry
 }
 
+type EntryAddedMsg struct {
+	entry *models.Entry
+}
+
 func initialModel() model {
 	entryText := textinput.New()
 	entryText.Placeholder = "What are you doing right now?"
@@ -63,22 +67,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "enter":
-			e := &models.Entry{
-				Start: time.Now(),
-				End:   nil,
-				Name:  m.entryInput.Value(),
-			}
-			err := dbaccess.AddEntry(db, e)
-			if err != nil {
-				log.Fatalf("Could not write to database: %v", err)
-			}
-			m.entryList.InsertItem(0, e)
-			m.entryInput.Reset()
-			return m, nil
+			return m, addNewEntryToDatabase(db, m.entryInput.Value())
 		}
 	case EntriesLoadedMsg:
 		log.Println("Received entries from database")
 		m.entryList = convertEntriesToList(msg.entries)
+		return m, nil
+	case EntryAddedMsg:
+		m.entryList.InsertItem(0, msg.entry)
+		m.entryInput.Reset()
 		return m, nil
 	}
 	m.entryInput, cmd = m.entryInput.Update(msg)
@@ -150,4 +147,21 @@ func convertEntriesToList(entries []*models.Entry) list.Model {
 		listEntries = append(listEntries, entry)
 	}
 	return list.New(listEntries, ui.EntryListDelegate{}, 40, 10)
+}
+
+func addNewEntryToDatabase(db *clover.DB, description string) tea.Cmd {
+	log.Println("Adding new entry...")
+	return func() tea.Msg {
+		e := &models.Entry{
+			Start: time.Now(),
+			End:   nil,
+			Name:  description,
+		}
+		err := dbaccess.AddEntry(db, e)
+		if err != nil {
+			log.Fatalf("Could not write to database: %v", err)
+		}
+		return EntryAddedMsg{entry: e}
+	}
+
 }
