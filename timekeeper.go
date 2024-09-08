@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/textinput"
 	dbaccess "github.com/danielroehrig/timekeeper/db"
 	"github.com/danielroehrig/timekeeper/models"
 	"github.com/danielroehrig/timekeeper/themes"
@@ -20,7 +19,7 @@ import (
 )
 
 type model struct {
-	entryInput    textinput.Model
+	currentState  ui.State
 	taskIsRunning bool
 	entryList     list.Model
 	theme         themes.Theme
@@ -35,15 +34,13 @@ type EntryAddedMsg struct {
 }
 
 func initialModel() model {
-	entryText := textinput.New()
-	entryText.Placeholder = "What are you doing right now?"
-	entryText.Focus()
+	entryText := ui.NewInputModel()
 
 	entries := make([]list.Item, 0)
 	return model{
-		entryInput: entryText,
-		entryList:  list.New(entries, ui.EntryListDelegate{}, 40, 10),
-		theme:      themes.TokyoNight,
+		currentState: entryText,
+		entryList:    list.New(entries, ui.EntryListDelegate{}, 40, 10),
+		theme:        themes.TokyoNight,
 	}
 }
 
@@ -56,7 +53,7 @@ var style = lipgloss.
 var db *clover.DB
 
 func (m model) Init() tea.Cmd {
-	return tea.Sequence(loadEntries(db), textinput.Blink)
+	return tea.Sequence(loadEntries(db), m.currentState.Init())
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -67,18 +64,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "enter":
-			return m, addNewEntryToDatabase(db, m.entryInput.Value())
+			return m, m.currentState.EnterPressed()
 		}
+	case ui.AddEntryMsg:
+		return m, addNewEntryToDatabase(db, msg.Description)
 	case EntriesLoadedMsg:
 		log.Println("Received entries from database")
 		m.entryList = convertEntriesToList(msg.entries)
 		return m, nil
 	case EntryAddedMsg:
 		m.entryList.InsertItem(0, msg.entry)
-		m.entryInput.Reset()
 		return m, nil
 	}
-	m.entryInput, cmd = m.entryInput.Update(msg)
+	m.currentState.Update(msg)
 	return m, cmd
 }
 
@@ -87,7 +85,7 @@ func (m model) View() string {
 	var inputStyle = lipgloss.NewStyle().Bold(true).Foreground(m.theme.Accent).MarginBottom(2)
 
 	s := headline.Render("Timekeeper")
-	s += fmt.Sprintf("\n%s", inputStyle.Render(m.entryInput.View()))
+	s += fmt.Sprintf("\n%s", inputStyle.Render(m.currentState.View()))
 	s += fmt.Sprintf("\n%s", inputStyle.Render(m.entryList.View()))
 	return s
 }
