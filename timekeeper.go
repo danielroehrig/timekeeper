@@ -23,23 +23,22 @@ type model struct {
 	entryInput    textinput.Model
 	taskIsRunning bool
 	entryList     list.Model
-	entries       []*models.Entry
 	theme         themes.Theme
+}
+
+type EntriesLoadedMsg struct {
+	entries []*models.Entry
 }
 
 func initialModel() model {
 	entryText := textinput.New()
 	entryText.Placeholder = "What are you doing right now?"
 	entryText.Focus()
-	loadedEntries := dbaccess.LoadEntries(db)
-	listEntries := make([]list.Item, 0, len(loadedEntries))
-	for _, entry := range loadedEntries {
-		listEntries = append(listEntries, entry)
-	}
 
+	entries := make([]list.Item, 0)
 	return model{
 		entryInput: entryText,
-		entryList:  list.New(listEntries, ui.EntryListDelegate{}, 40, 10),
+		entryList:  list.New(entries, ui.EntryListDelegate{}, 40, 10),
 		theme:      themes.TokyoNight,
 	}
 }
@@ -53,7 +52,7 @@ var style = lipgloss.
 var db *clover.DB
 
 func (m model) Init() tea.Cmd {
-	return textinput.Blink
+	return tea.Sequence(loadEntries(db), textinput.Blink)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -73,11 +72,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err != nil {
 				log.Fatalf("Could not write to database: %v", err)
 			}
-			m.entries = append(m.entries, e)
 			m.entryList.InsertItem(0, e)
 			m.entryInput.Reset()
 			return m, nil
 		}
+	case EntriesLoadedMsg:
+		log.Println("Received entries from database")
+		m.entryList = convertEntriesToList(msg.entries)
+		return m, nil
 	}
 	m.entryInput, cmd = m.entryInput.Update(msg)
 	return m, cmd
@@ -94,6 +96,15 @@ func (m model) View() string {
 }
 
 func main() {
+	if len(os.Getenv("DEBUG")) > 0 {
+		f, err := tea.LogToFile("debug.log", "debug")
+		if err != nil {
+			fmt.Println("fatal:", err)
+			os.Exit(1)
+		}
+		defer f.Close()
+	}
+
 	loadConfig()
 	db = dbaccess.OpenDatabase()
 
@@ -106,6 +117,7 @@ func main() {
 }
 
 func loadConfig() {
+	log.Println("Loading configuration...")
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		log.Fatalf("could not find config dir. Aborting. %s", err)
@@ -122,4 +134,20 @@ func loadConfig() {
 	if err != nil {
 		fmt.Printf("could not write to config %v", err)
 	}
+}
+
+func loadEntries(db *clover.DB) tea.Cmd {
+	log.Println("Loading entries...")
+	return func() tea.Msg {
+		loadedEntries := dbaccess.LoadEntries(db)
+		return EntriesLoadedMsg{entries: loadedEntries}
+	}
+}
+
+func convertEntriesToList(entries []*models.Entry) list.Model {
+	listEntries := make([]list.Item, 0, len(entries))
+	for _, entry := range entries {
+		listEntries = append(listEntries, entry)
+	}
+	return list.New(listEntries, ui.EntryListDelegate{}, 40, 10)
 }
