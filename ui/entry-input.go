@@ -23,10 +23,16 @@ func NewInputModel() *InputModel {
 	}
 }
 
-func (i *InputModel) EnterPressed() tea.Cmd {
-	return func() tea.Msg {
-		return AddEntryMsg{Description: i.input.Value()}
+func (i *InputModel) KeyPressed(key string) tea.Cmd {
+	switch key {
+	case "ctrl+c":
+		return tea.Quit
+	case "enter":
+		return func() tea.Msg {
+			return AddEntryMsg{Description: i.input.Value()}
+		}
 	}
+	return nil
 }
 
 func (i *InputModel) Update(msg tea.Msg) tea.Cmd {

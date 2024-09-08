@@ -60,12 +60,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c":
-			return m, tea.Quit
-		case "enter":
-			return m, m.currentState.EnterPressed()
-		}
+		return m, m.currentState.KeyPressed(msg.String())
 	case ui.AddEntryMsg:
 		return m, addNewEntryToDatabase(db, msg.Description)
 	case EntriesLoadedMsg:
