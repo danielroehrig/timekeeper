@@ -15,8 +15,8 @@ func (m *RunningTaskModel) KeyPressed(key tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-func (m *RunningTaskModel) Update(msg tea.Msg) tea.Cmd {
-	return nil
+func (m *RunningTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	return m, nil
 }
 
 func (m *RunningTaskModel) View() string {
@@ -25,4 +25,8 @@ func (m *RunningTaskModel) View() string {
 
 func (m *RunningTaskModel) Init() tea.Cmd {
 	return nil
+}
+
+func (m *RunningTaskModel) String() string {
+	return "Running Task"
 }

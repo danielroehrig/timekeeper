@@ -7,7 +7,7 @@ import (
 
 type State interface {
 	KeyPressed(msg tea.KeyMsg) tea.Cmd
-	Update(msg tea.Msg) tea.Cmd
+	Update(msg tea.Msg) (tea.Model, tea.Cmd)
 	View() string
 	Init() tea.Cmd
 }

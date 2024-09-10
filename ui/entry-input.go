@@ -38,10 +38,10 @@ func (i *InputModel) KeyPressed(msg tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
-func (i *InputModel) Update(msg tea.Msg) tea.Cmd {
+func (i *InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	i.input, cmd = i.input.Update(msg)
-	return cmd
+	return i, cmd
 }
 
 func (i *InputModel) View() string {
@@ -50,4 +50,8 @@ func (i *InputModel) View() string {
 
 func (i *InputModel) Init() tea.Cmd {
 	return textinput.Blink
+}
+
+func (i *InputModel) String() string {
+	return "Task Input"
 }

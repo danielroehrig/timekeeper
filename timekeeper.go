@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	dbaccess "github.com/danielroehrig/timekeeper/db"
 	"github.com/danielroehrig/timekeeper/models"
 	"github.com/danielroehrig/timekeeper/themes"
@@ -53,7 +54,7 @@ var style = lipgloss.
 var db *clover.DB
 
 func (m model) Init() tea.Cmd {
-	return tea.Sequence(loadEntries(db), m.currentState.Init())
+	return tea.Sequence(loadEntries(db), m.currentState.Init(), textinput.Blink)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -76,7 +77,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentState = msg.NextState
 		return m, nil
 	}
-	m.currentState.Update(msg)
+	_, cmd = m.currentState.Update(msg)
 	return m, cmd
 }
 
