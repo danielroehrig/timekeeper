@@ -2,9 +2,9 @@ package db
 
 import (
 	"fmt"
+	"github.com/danielroehrig/timekeeper/log"
 	"github.com/danielroehrig/timekeeper/models"
 	"github.com/ostafen/clover"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -21,21 +21,21 @@ type entry struct {
 func OpenDatabase() *clover.DB {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
-		log.Fatalf("could not find config dir. Aborting. %s", err)
+		log.Errorf("could not find config dir. Aborting. %s", err)
 	}
 	db, err := clover.Open(filepath.Join(configDir, "timekeeper"))
 	if err != nil {
-		log.Fatalf("could not open database. Aborting. %s", err)
+		log.Errorf("could not open database. Aborting. %s", err)
 	}
 
 	hasEntriesCollection, err := db.HasCollection(collectionName)
 	if err != nil {
-		log.Fatalf("could not check if there are entries collection. Aborting. %s", err)
+		log.Errorf("could not check if there are entries collection. Aborting. %s", err)
 	}
 	if !hasEntriesCollection {
 		err = db.CreateCollection(collectionName)
 		if err != nil {
-			log.Fatalf("could not create collection. Aborting. %s", err)
+			log.Errorf("could not create collection. Aborting. %s", err)
 		}
 	}
 	return db
@@ -44,13 +44,13 @@ func OpenDatabase() *clover.DB {
 func LoadEntries(db *clover.DB) []*models.Entry {
 	docs, err := db.Query(collectionName).FindAll()
 	if err != nil {
-		log.Fatalf("could not list entries. Aborting. %s", err)
+		log.Errorf("could not list entries. Aborting. %s", err)
 	}
 	items := make([]*models.Entry, 0, len(docs))
 	for _, doc := range docs {
 		entry, err := unmarshallDoc(doc)
 		if err != nil {
-			log.Fatalf("loading entries failed: %s", err)
+			log.Errorf("loading entries failed: %s", err)
 		}
 		items = append(items, entry)
 	}
@@ -70,17 +70,17 @@ func AddEntry(db *clover.DB, e *models.Entry) error {
 }
 
 func CloseDatabase(db *clover.DB) {
-	log.Printf("closing database file")
+	log.Infof("closing database file")
 	err := db.Close()
 	if err != nil {
-		log.Fatalf("could not close db. %s", err)
+		log.Errorf("could not close db. %s", err)
 	}
 }
 
 func GetRunning(db *clover.DB) (*models.Entry, error) {
 	entries, err := db.Query(collectionName).Where(clover.Field("end").IsNil()).FindAll()
 	if err != nil {
-		log.Fatalf("could not list entries. Aborting. %s", err)
+		log.Errorf("could not list entries. Aborting. %s", err)
 	}
 	if len(entries) > 1 {
 		return nil, fmt.Errorf("more than one running tasks")

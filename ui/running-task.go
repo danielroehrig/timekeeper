@@ -1,14 +1,18 @@
 package ui
 
 import (
+	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/danielroehrig/timekeeper/models"
+	"log"
+	"time"
 )
 
-type GetRunningTaskMsg struct{}
+type TickMsg struct{}
 
 type RunningTaskModel struct {
-	Entry *models.Entry
+	Entry   *models.Entry
+	Running bool
 }
 
 func (m *RunningTaskModel) KeyPressed(key tea.KeyMsg) tea.Cmd {
@@ -20,10 +24,24 @@ func (m *RunningTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *RunningTaskModel) View() string {
-	return m.Entry.Name
+	now := time.Now()
+	return fmt.Sprintf("%s\n%f", m.Entry.Name, now.Sub(m.Entry.Start).Seconds())
 }
 
 func (m *RunningTaskModel) Init() tea.Cmd {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	done := make(chan bool)
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case _ = <-ticker.C:
+				log.Println("herrruu")
+				m.Update(TickMsg{})
+			}
+		}
+	}()
 	return nil
 }
 

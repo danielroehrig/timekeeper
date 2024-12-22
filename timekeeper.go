@@ -5,12 +5,14 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	dbaccess "github.com/danielroehrig/timekeeper/db"
+	"github.com/danielroehrig/timekeeper/log"
 	"github.com/danielroehrig/timekeeper/models"
 	"github.com/danielroehrig/timekeeper/themes"
 	"github.com/danielroehrig/timekeeper/ui"
-	"log"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -45,12 +47,6 @@ func initialModel() model {
 	}
 }
 
-var style = lipgloss.
-	NewStyle().
-	Bold(true).
-	PaddingTop(2).
-	PaddingLeft(4)
-
 var db *clover.DB
 
 func (m model) Init() tea.Cmd {
@@ -65,7 +61,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ui.AddEntryMsg:
 		return m, addNewEntryToDatabase(db, msg.Description)
 	case EntriesLoadedMsg:
-		log.Println("Received entries from database")
+		log.Debugf("Received entries from database")
 		m.entryList = convertEntriesToList(msg.entries)
 		return m, nil
 	case EntryAddedMsg:
@@ -73,9 +69,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		s := &ui.RunningTaskModel{Entry: msg.entry}
 		return m, ui.ChangeState(s)
 	case ui.StateChangeMsg:
-		log.Println("Received state change")
+		log.Debugf("Received state change")
 		m.currentState = msg.NextState
-		return m, nil
+		return m, m.currentState.Init()
 	}
 	_, cmd = m.currentState.Update(msg)
 	return m, cmd
@@ -92,14 +88,21 @@ func (m model) View() string {
 }
 
 func main() {
-	if len(os.Getenv("DEBUG")) > 0 {
-		f, err := tea.LogToFile("debug.log", "debug")
-		if err != nil {
-			fmt.Println("fatal:", err)
-			os.Exit(1)
-		}
-		defer f.Close()
+	switch strings.ToLower(os.Getenv("LOGLEVEL")) {
+	case "debug":
+		log.SetLogLevel(log.LevelDebug)
+	case "info":
+		log.SetLogLevel(log.LevelInfo)
+	case "warn":
+		log.SetLogLevel(log.LevelWarn)
+	case "error":
+		log.SetLogLevel(log.LevelError)
 	}
+	f, err := tea.LogToFile(path.Join(os.TempDir(), "timekeeper.log"), "")
+	if err != nil {
+		log.Errorf("Failed to open log file: %v", err)
+	}
+	defer f.Close()
 
 	loadConfig()
 	db = dbaccess.OpenDatabase()
@@ -107,33 +110,32 @@ func main() {
 	defer dbaccess.CloseDatabase(db)
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
-		fmt.Printf("Alas, there's been an error: %v", err)
-		os.Exit(1)
+		log.Errorf("Error running program: %v", err)
 	}
 }
 
 func loadConfig() {
-	log.Println("Loading configuration...")
+	log.Infof("Loading configuration...")
 	configDir, err := os.UserConfigDir()
 	if err != nil {
-		log.Fatalf("could not find config dir. Aborting. %s", err)
+		log.Errorf("could not find config dir. Aborting. %s", err)
 	}
 	configFile := filepath.Join(configDir, "timekeeper", "config.yml")
 	err = os.Mkdir(filepath.Dir(configFile), 0755)
 	if err != nil && !os.IsExist(err) {
-		log.Fatalf("could not create config folder %v", err)
+		log.Errorf("could not create config folder %v", err)
 	}
 	viper.SetConfigFile(configFile)
 	viper.SetDefault("someValue", "foobar")
 	viper.Set("foo", "bar")
 	err = viper.WriteConfig()
 	if err != nil {
-		fmt.Printf("could not write to config %v", err)
+		log.Errorf("could not write to config %v", err)
 	}
 }
 
 func loadEntries(db *clover.DB) tea.Cmd {
-	log.Println("Loading entries...")
+	log.Infof("Loading entries...")
 	return func() tea.Msg {
 		loadedEntries := dbaccess.LoadEntries(db)
 		return EntriesLoadedMsg{entries: loadedEntries}
@@ -149,7 +151,7 @@ func convertEntriesToList(entries []*models.Entry) list.Model {
 }
 
 func addNewEntryToDatabase(db *clover.DB, description string) tea.Cmd {
-	log.Println("Adding new entry...")
+	log.Debugf("Adding new entry...")
 	return func() tea.Msg {
 		e := &models.Entry{
 			Start: time.Now(),
@@ -158,7 +160,7 @@ func addNewEntryToDatabase(db *clover.DB, description string) tea.Cmd {
 		}
 		err := dbaccess.AddEntry(db, e)
 		if err != nil {
-			log.Fatalf("Could not write to database: %v", err)
+			log.Errorf("Could not write to database: %v", err)
 		}
 		return EntryAddedMsg{entry: e}
 	}
