@@ -3,8 +3,8 @@ package ui
 import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/danielroehrig/timekeeper/log"
 	"github.com/danielroehrig/timekeeper/models"
-	"log"
 	"time"
 )
 
@@ -16,10 +16,12 @@ type RunningTaskModel struct {
 }
 
 func (m *RunningTaskModel) KeyPressed(key tea.KeyMsg) tea.Cmd {
+	log.Debugf("KeyPressed: %s", key)
 	return nil
 }
 
 func (m *RunningTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	log.Debugf("Updated received: %s", msg)
 	return m, nil
 }
 
@@ -37,7 +39,7 @@ func (m *RunningTaskModel) Init() tea.Cmd {
 			case <-done:
 				return
 			case _ = <-ticker.C:
-				log.Println("herrruu")
+				log.Debugf("Tick")
 				m.Update(TickMsg{})
 			}
 		}
