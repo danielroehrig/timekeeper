@@ -11,21 +11,27 @@ import (
 type TickMsg struct{}
 
 type RunningTaskModel struct {
-	Entry   *models.Entry
-	Running bool
+	Entry     *models.Entry
+	Running   bool
+	MainModel tea.Model
 }
 
 func (m *RunningTaskModel) KeyPressed(key tea.KeyMsg) tea.Cmd {
 	log.Debugf("KeyPressed: %s", key)
+	switch key.String() {
+	case "ctrl+c":
+		return tea.Quit
+	}
 	return nil
 }
 
 func (m *RunningTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	log.Debugf("Updated received: %s", msg)
-	return m, nil
+	return m.MainModel.Update(msg)
 }
 
 func (m *RunningTaskModel) View() string {
+	log.Debugf("Running Task View Called")
 	now := time.Now()
 	return fmt.Sprintf("%s\n%f", m.Entry.Name, now.Sub(m.Entry.Start).Seconds())
 }

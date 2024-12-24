@@ -55,6 +55,7 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+	log.Debugf("main update %v", cmd)
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return m, m.currentState.KeyPressed(msg)
@@ -66,7 +67,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case EntryAddedMsg:
 		m.entryList.InsertItem(0, msg.entry)
-		s := &ui.RunningTaskModel{Entry: msg.entry}
+		s := &ui.RunningTaskModel{Entry: msg.entry, MainModel: &m}
 		return m, ui.ChangeState(s)
 	case ui.StateChangeMsg:
 		log.Debugf("Received state change")
@@ -78,6 +79,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+	log.Debugf("main view called")
 	var headline = lipgloss.NewStyle().Bold(true).Foreground(m.theme.AltAccent).PaddingLeft(2).PaddingTop(1).MarginBottom(1)
 	var inputStyle = lipgloss.NewStyle().Bold(true).Foreground(m.theme.Accent).MarginBottom(2)
 
