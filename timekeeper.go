@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	dbaccess "github.com/danielroehrig/timekeeper/db"
 	"github.com/danielroehrig/timekeeper/log"
@@ -21,10 +21,20 @@ import (
 	"github.com/spf13/viper"
 )
 
+type Focused byte
+
+const (
+	TaskInput Focused = iota
+	EntryList
+	Editor
+)
+
 type model struct {
-	currentState  ui.Page
+	focused       Focused
 	taskIsRunning bool
+	taskEntry     textinput.Model
 	entryList     list.Model
+	description   textarea.Model
 	theme         themes.Theme
 }
 
@@ -32,25 +42,33 @@ type EntriesLoadedMsg struct {
 	entries []*models.Entry
 }
 
+type AddEntryMsg struct {
+	description string
+}
 type EntryAddedMsg struct {
 	entry *models.Entry
 }
 
+var entryText = textinput.New()
+
 func initialModel() model {
-	entryText := ui.NewInputModel()
+	entryText.Placeholder = "What are you doing right now?"
+	entryText.Focus()
 
 	entries := make([]list.Item, 0)
 	return model{
-		currentState: entryText,
-		entryList:    list.New(entries, ui.EntryListDelegate{}, 40, 10),
-		theme:        themes.TokyoNight,
+		focused:     TaskInput,
+		taskEntry:   entryText,
+		entryList:   list.New(entries, ui.EntryListDelegate{}, 40, 10),
+		description: textarea.New(),
+		theme:       themes.TokyoNight,
 	}
 }
 
 var db *clover.DB
 
 func (m model) Init() tea.Cmd {
-	return tea.Sequence(loadEntries(db), m.currentState.Init(), textinput.Blink)
+	return tea.Sequence(loadEntries(db), textinput.Blink)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -58,34 +76,54 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	log.Debugf("main update %v", cmd)
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		return m, m.currentState.KeyPressed(msg)
-	case ui.AddEntryMsg:
-		return m, addNewEntryToDatabase(db, msg.Description)
+		log.Debugf("new key msg %s and focused was %v", msg.String(), m.focused)
+		key := msg.String()
+		switch key {
+		case "ctrl+c":
+			return m, tea.Quit
+		case "enter":
+			switch m.focused {
+			case TaskInput:
+				return m, func() tea.Msg {
+					return AddEntryMsg{description: m.taskEntry.Value()}
+				}
+			default:
+				log.Debugf("Currently Focused: %v", m.focused)
+				return m, nil
+			}
+		}
+		switch m.focused {
+		case TaskInput:
+			v, cmd := m.taskEntry.Update(msg)
+			m.taskEntry = v
+			return m, cmd
+		default:
+			return m, nil
+		}
+	case AddEntryMsg:
+		return m, addNewEntryToDatabase(db, msg.description)
 	case EntriesLoadedMsg:
 		log.Debugf("Received entries from database")
 		m.entryList = convertEntriesToList(msg.entries)
 		return m, nil
 	case EntryAddedMsg:
+		log.Debugf("Entry added to database")
 		m.entryList.InsertItem(0, msg.entry)
-		s := &ui.RunningTaskModel{Entry: msg.entry, MainModel: &m}
-		return m, ui.ChangePage(s)
-	case ui.PageChangeMsg:
-		log.Debugf("Received state change")
-		m.currentState = msg.NextPage
-		return m, m.currentState.Init()
+		m.description.Focus()
+		m.focused = Editor
 	}
-	_, cmd = m.currentState.Update(msg)
 	return m, cmd
 }
 
 func (m model) View() string {
 	log.Debugf("main view called")
 	var headline = lipgloss.NewStyle().Bold(true).Foreground(m.theme.AltAccent).PaddingLeft(2).PaddingTop(1).MarginBottom(1)
-	var inputStyle = lipgloss.NewStyle().Bold(true).Foreground(m.theme.Accent).MarginBottom(2)
+	var inputStyle = lipgloss.NewStyle().Bold(true).Foreground(m.theme.Accent).MarginBottom(0).Border(lipgloss.RoundedBorder())
 
-	s := headline.Render("Timekeeper")
-	s += fmt.Sprintf("\n%s", inputStyle.Render(m.currentState.View()))
-	//s += fmt.Sprintf("\n%s", inputStyle.Render(m.entryList.View()))
+	s := lipgloss.JoinVertical(lipgloss.Top, headline.Render("Timekeeper"),
+		lipgloss.JoinHorizontal(lipgloss.Left,
+			lipgloss.JoinVertical(lipgloss.Top, inputStyle.Render(m.taskEntry.View()), inputStyle.Render(m.entryList.View())),
+			inputStyle.Render(m.description.View())))
 	return s
 }
 
