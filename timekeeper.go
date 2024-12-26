@@ -22,7 +22,7 @@ import (
 )
 
 type model struct {
-	currentState  ui.State
+	currentState  ui.Page
 	taskIsRunning bool
 	entryList     list.Model
 	theme         themes.Theme
@@ -68,10 +68,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case EntryAddedMsg:
 		m.entryList.InsertItem(0, msg.entry)
 		s := &ui.RunningTaskModel{Entry: msg.entry, MainModel: &m}
-		return m, ui.ChangeState(s)
-	case ui.StateChangeMsg:
+		return m, ui.ChangePage(s)
+	case ui.PageChangeMsg:
 		log.Debugf("Received state change")
-		m.currentState = msg.NextState
+		m.currentState = msg.NextPage
 		return m, m.currentState.Init()
 	}
 	_, cmd = m.currentState.Update(msg)
@@ -85,7 +85,7 @@ func (m model) View() string {
 
 	s := headline.Render("Timekeeper")
 	s += fmt.Sprintf("\n%s", inputStyle.Render(m.currentState.View()))
-	s += fmt.Sprintf("\n%s", inputStyle.Render(m.entryList.View()))
+	//s += fmt.Sprintf("\n%s", inputStyle.Render(m.entryList.View()))
 	return s
 }
 
