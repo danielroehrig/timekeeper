@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/stopwatch"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -102,6 +103,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			v, cmd := m.taskEntry.Update(msg)
 			m.taskEntry = v
 			return m, cmd
+		case Editor:
+			v, cmd := m.description.Update(msg)
+			m.description = v
+			return m, cmd
 		}
 	case AddEntryMsg:
 		return m, addNewEntryToDatabase(db, msg.description)
@@ -122,7 +127,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		log.Debugf("Start Stop Message")
 		m.stopwatch, cmd = m.stopwatch.Update(msg)
 		return m, cmd
+	case cursor.BlinkMsg:
+		// Textarea should also process cursor blinks.
+		var cmd tea.Cmd
+		m.description, cmd = m.description.Update(msg)
+		return m, cmd
 	}
+	log.Debugf("Unknown cmd %v", cmd)
 	return m, cmd
 }
 
@@ -133,7 +144,7 @@ func (m model) View() string {
 
 	var t string
 	if m.runningTask != nil {
-		t = inputStyle.Render("Some Running Task")
+		t = inputStyle.Render(m.runningTask.Name, m.stopwatch.View())
 	} else {
 		t = inputStyle.Render(m.taskEntry.View())
 	}
@@ -142,7 +153,6 @@ func (m model) View() string {
 		lipgloss.JoinHorizontal(lipgloss.Left,
 			lipgloss.JoinVertical(lipgloss.Top, t, inputStyle.Render(m.entryList.View())),
 			inputStyle.Render(m.description.View())))
-	s += m.stopwatch.View()
 	return s
 }
 
