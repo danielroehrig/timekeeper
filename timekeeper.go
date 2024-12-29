@@ -1,6 +1,12 @@
 package main
 
 import (
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+	"time"
+
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/stopwatch"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -10,11 +16,6 @@ import (
 	"github.com/danielroehrig/timekeeper/models"
 	"github.com/danielroehrig/timekeeper/themes"
 	"github.com/danielroehrig/timekeeper/ui"
-	"os"
-	"path"
-	"path/filepath"
-	"strings"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -78,8 +79,6 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	log.Debugf("main update %v", msg)
-	log.Debugf("stopwatch runnign %v", m.stopwatch.Running())
-	if m.stopwatch.R
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		log.Debugf("new key msg %s and focused was %v", msg.String(), m.focused)
@@ -103,8 +102,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			v, cmd := m.taskEntry.Update(msg)
 			m.taskEntry = v
 			return m, cmd
-		default:
-			return m, nil
 		}
 	case AddEntryMsg:
 		return m, addNewEntryToDatabase(db, msg.description)
@@ -117,14 +114,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.entryList.InsertItem(0, msg.entry)
 		m.description.Focus()
 		m.focused = Editor
+	case stopwatch.TickMsg:
+		log.Debugf("Tick Message received")
+		m.stopwatch, cmd = m.stopwatch.Update(msg)
+		return m, cmd
+	case stopwatch.StartStopMsg:
+		log.Debugf("Start Stop Message")
+		m.stopwatch, cmd = m.stopwatch.Update(msg)
+		return m, cmd
 	}
 	return m, cmd
 }
 
 func (m model) View() string {
 	log.Debugf("main view called")
-	var headline = lipgloss.NewStyle().Bold(true).Foreground(m.theme.AltAccent).PaddingLeft(2).PaddingTop(1).MarginBottom(1)
-	var inputStyle = lipgloss.NewStyle().Bold(true).Foreground(m.theme.Accent).MarginBottom(0).Border(lipgloss.RoundedBorder())
+	headline := lipgloss.NewStyle().Bold(true).Foreground(m.theme.AltAccent).PaddingLeft(2).PaddingTop(1).MarginBottom(1)
+	inputStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Accent).MarginBottom(0).Border(lipgloss.RoundedBorder())
 
 	var t string
 	if m.runningTask != nil {
@@ -137,6 +142,7 @@ func (m model) View() string {
 		lipgloss.JoinHorizontal(lipgloss.Left,
 			lipgloss.JoinVertical(lipgloss.Top, t, inputStyle.Render(m.entryList.View())),
 			inputStyle.Render(m.description.View())))
+	s += m.stopwatch.View()
 	return s
 }
 
@@ -218,5 +224,4 @@ func addNewEntryToDatabase(db *clover.DB, description string) tea.Cmd {
 		}
 		return EntryAddedMsg{entry: e}
 	}
-
 }
