@@ -53,13 +53,20 @@ type EntryAddedMsg struct {
 	entry *models.Entry
 }
 
-var entryText = textinput.New()
+var (
+	inputStyle     = lipgloss.NewStyle()
+	subtextStyle   = lipgloss.NewStyle()
+	borderedWidget = lipgloss.NewStyle().Border(lipgloss.InnerHalfBlockBorder(), true)
+)
 
 func initialModel() model {
+	entryText := textinput.New()
 	entryText.Placeholder = "What are you doing right now?"
 	entryText.Focus()
 
 	entries := make([]list.Item, 0)
+	theme := themes.TokyoNight
+	inputStyle = inputStyle.Bold(false).Foreground(theme.Accent)
 
 	return model{
 		focused:     TaskInput,
@@ -150,16 +157,20 @@ func (m model) handleKeypressEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+func (m model) runningTaskView() string {
+	return borderedWidget.Render(lipgloss.JoinVertical(lipgloss.Left, inputStyle.Render(m.runningTask.Name), subtextStyle.Render(m.stopwatch.View())))
+}
+
 func (m model) View() string {
 	log.Debugf("main view called")
 	headline := lipgloss.NewStyle().Bold(true).Foreground(m.theme.AltAccent).PaddingLeft(2).PaddingTop(1).MarginBottom(1)
 	inputStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Accent).MarginBottom(0).Border(lipgloss.RoundedBorder())
 
 	var t string
-	if m.runningTask != nil {
-		t = inputStyle.Render(m.runningTask.Name, m.stopwatch.View())
-	} else {
+	if m.runningTask == nil {
 		t = inputStyle.Render(m.taskEntry.View())
+	} else {
+		t = m.runningTaskView()
 	}
 
 	s := lipgloss.JoinVertical(lipgloss.Top, headline.Render("Timekeeper"),
