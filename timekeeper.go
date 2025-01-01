@@ -82,32 +82,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	log.Debugf("main update %v", msg)
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		log.Debugf("new key msg %s and focused was %v", msg.String(), m.focused)
-		key := msg.String()
-		switch key {
-		case "ctrl+c":
-			return m, tea.Quit
-		case "enter":
-			switch m.focused {
-			case TaskInput:
-				return m, func() tea.Msg {
-					return AddEntryMsg{description: m.taskEntry.Value()}
-				}
-			default:
-				log.Debugf("Currently Focused: %v", m.focused)
-				return m, nil
-			}
-		}
-		switch m.focused {
-		case TaskInput:
-			v, cmd := m.taskEntry.Update(msg)
-			m.taskEntry = v
-			return m, cmd
-		case Editor:
-			v, cmd := m.description.Update(msg)
-			m.description = v
-			return m, cmd
-		}
+		return m.handleKeypress(msg)
 	case AddEntryMsg:
 		return m, addNewEntryToDatabase(db, msg.description)
 	case EntriesLoadedMsg:
@@ -134,6 +109,44 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 	log.Debugf("Unknown cmd %v", cmd)
+	return m, cmd
+}
+
+func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	log.Debugf("new key msg %s and focused was %v", msg.String(), m.focused)
+	key := msg.String()
+	switch key {
+	case "ctrl+c":
+		return m, tea.Quit
+	}
+	switch m.focused {
+	case TaskInput:
+		return m.handleKeypressTaskInput(msg)
+	case Editor:
+		return m.handleKeypressEditor(msg)
+	default:
+		log.Debugf("no handle for focus", m.focused)
+		return m, nil
+	}
+}
+
+func (m model) handleKeypressTaskInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+	switch key {
+	case "enter":
+		return m, func() tea.Msg {
+			return AddEntryMsg{description: m.taskEntry.Value()}
+		}
+	default:
+		v, cmd := m.taskEntry.Update(msg)
+		m.taskEntry = v
+		return m, cmd
+	}
+}
+
+func (m model) handleKeypressEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	v, cmd := m.description.Update(msg)
+	m.description = v
 	return m, cmd
 }
 
