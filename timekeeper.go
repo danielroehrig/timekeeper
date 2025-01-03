@@ -4,6 +4,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,10 +54,15 @@ type EntryAddedMsg struct {
 	entry *models.Entry
 }
 
+type (
+	NextFocusMsg struct{}
+	PrevFocusMsg struct{}
+)
+
 var (
 	inputStyle     = lipgloss.NewStyle()
 	subtextStyle   = lipgloss.NewStyle()
-	borderedWidget = lipgloss.NewStyle().Border(lipgloss.InnerHalfBlockBorder(), true)
+	borderedWidget = lipgloss.NewStyle().Border(lipgloss.RoundedBorder(), true).Width(20)
 )
 
 func initialModel() model {
@@ -114,6 +120,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.description, cmd = m.description.Update(msg)
 		return m, cmd
+	case NextFocusMsg:
+		switch m.focused {
+		case TaskInput:
+			m.entryList.FilterInput.Focus()
+			m.focused = EntryList
+		case EntryList:
+			m.description.Focus()
+			m.focused = Editor
+		case Editor:
+			m.taskEntry.Focus()
+			m.focused = TaskInput
+		}
 	}
 	log.Debugf("Unknown cmd %v", cmd)
 	return m, cmd
@@ -125,6 +143,10 @@ func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch key {
 	case "ctrl+c":
 		return m, tea.Quit
+	case "tab":
+		return m, func() tea.Msg {
+			return NextFocusMsg{}
+		}
 	}
 	switch m.focused {
 	case TaskInput:
@@ -158,25 +180,51 @@ func (m model) handleKeypressEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) runningTaskView() string {
-	return borderedWidget.Render(lipgloss.JoinVertical(lipgloss.Left, inputStyle.Render(m.runningTask.Name), subtextStyle.Render(m.stopwatch.View())))
+	elapsed := time.Since(m.runningTask.Start)
+	inner := lipgloss.JoinVertical(lipgloss.Left, inputStyle.Render(m.runningTask.Name), subtextStyle.Render(strconv.Itoa(int(elapsed.Seconds()))))
+	if m.focused == TaskInput {
+		return borderedWidget.BorderForeground(m.theme.Accent).Render(inner)
+	}
+	return borderedWidget.Render(inner)
+}
+
+func (m model) taskInputView() string {
+	if m.focused == TaskInput {
+		return borderedWidget.BorderForeground(m.theme.Accent).Render(m.taskEntry.View())
+	} else {
+		return borderedWidget.Render(m.taskEntry.View())
+	}
+}
+
+func (m model) EditorView() string {
+	if m.focused == Editor {
+		return borderedWidget.BorderForeground(m.theme.Accent).Render(m.description.View())
+	}
+	return borderedWidget.Render(m.description.View())
+}
+
+func (m model) TaskListView() string {
+	if m.focused == EntryList {
+		return borderedWidget.BorderForeground(m.theme.Accent).Render(m.entryList.View())
+	}
+	return borderedWidget.Render(m.entryList.View())
 }
 
 func (m model) View() string {
 	log.Debugf("main view called")
 	headline := lipgloss.NewStyle().Bold(true).Foreground(m.theme.AltAccent).PaddingLeft(2).PaddingTop(1).MarginBottom(1)
-	inputStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Accent).MarginBottom(0).Border(lipgloss.RoundedBorder())
 
 	var t string
 	if m.runningTask == nil {
-		t = inputStyle.Render(m.taskEntry.View())
+		t = m.taskInputView()
 	} else {
 		t = m.runningTaskView()
 	}
 
 	s := lipgloss.JoinVertical(lipgloss.Top, headline.Render("Timekeeper"),
 		lipgloss.JoinHorizontal(lipgloss.Left,
-			lipgloss.JoinVertical(lipgloss.Top, t, inputStyle.Render(m.entryList.View())),
-			inputStyle.Render(m.description.View())))
+			lipgloss.JoinVertical(lipgloss.Top, t, m.TaskListView()),
+			m.EditorView()))
 	return s
 }
 
