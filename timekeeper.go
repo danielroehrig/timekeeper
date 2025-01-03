@@ -153,6 +153,8 @@ func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleKeypressTaskInput(msg)
 	case Editor:
 		return m.handleKeypressEditor(msg)
+	case EntryList:
+		return m.handleKeypressTaskList(msg)
 	default:
 		log.Debugf("no handle for focus", m.focused)
 		return m, nil
@@ -176,6 +178,12 @@ func (m model) handleKeypressTaskInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) handleKeypressEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	v, cmd := m.description.Update(msg)
 	m.description = v
+	return m, cmd
+}
+
+func (m model) handleKeypressTaskList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	v, cmd := m.entryList.Update(msg)
+	m.entryList = v
 	return m, cmd
 }
 
