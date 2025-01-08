@@ -29,6 +29,7 @@ type Focused byte
 
 const (
 	TaskInput Focused = iota
+	TaskRunning
 	EntryList
 	Editor
 )
@@ -55,8 +56,9 @@ type EntryAddedMsg struct {
 }
 
 type (
-	NextFocusMsg struct{}
-	PrevFocusMsg struct{}
+	NextFocusMsg       struct{}
+	PrevFocusMsg       struct{}
+	StopRunningTaskMsg struct{}
 )
 
 var (
@@ -132,8 +134,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.taskEntry.Focus()
 			m.focused = TaskInput
 		}
+	case StopRunningTaskMsg:
+		taskEnd := time.Now()
+		m.runningTask.End = &taskEnd
+		m.focused = TaskInput
 	}
-	log.Debugf("Unknown cmd %v", cmd)
 	return m, cmd
 }
 
@@ -175,6 +180,17 @@ func (m model) handleKeypressTaskInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 }
 
+func (m model) handleKeypressTaskRunning(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+	switch key {
+	case "space":
+		return m, func() tea.Msg {
+			return StopRunningTaskMsg{}
+		}
+	}
+	return m, nil
+}
+
 func (m model) handleKeypressEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	v, cmd := m.description.Update(msg)
 	m.description = v
@@ -189,7 +205,7 @@ func (m model) handleKeypressTaskList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m model) runningTaskView() string {
 	elapsed := time.Since(m.runningTask.Start)
-	inner := lipgloss.JoinVertical(lipgloss.Left, inputStyle.Render(m.runningTask.Name), subtextStyle.Render(strconv.Itoa(int(elapsed.Seconds()))))
+	inner := lipgloss.JoinVertical(lipgloss.Left, inputStyle.Render(m.runningTask.Name), subtextStyle.Render(strconv.Itoa(int(elapsed.Seconds())), "press space to stop"))
 	if m.focused == TaskInput {
 		return borderedWidget.BorderForeground(m.theme.Accent).Render(inner)
 	}
