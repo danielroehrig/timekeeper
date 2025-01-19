@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"github.com/danielroehrig/timekeeper/log"
 	"github.com/danielroehrig/timekeeper/models"
-	"github.com/ostafen/clover"
+	"github.com/ostafen/clover/v2"
+	"github.com/ostafen/clover/v2/document"
+	"github.com/ostafen/clover/v2/query"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 )
@@ -13,9 +16,10 @@ import (
 const collectionName = "entries"
 
 type entry struct {
-	Name  string     `clover:"name"`
-	End   *time.Time `clover:"end"`
-	Start time.Time  `clover:"start"`
+	ObjectId string
+	Name     string     `clover:"name"`
+	End      *time.Time `clover:"end"`
+	Start    time.Time  `clover:"start"`
 }
 
 func OpenDatabase() *clover.DB {
@@ -42,7 +46,7 @@ func OpenDatabase() *clover.DB {
 }
 
 func LoadEntries(db *clover.DB) []*models.Entry {
-	docs, err := db.Query(collectionName).FindAll()
+	docs, err := db.FindAll(query.NewQuery(collectionName))
 	if err != nil {
 		log.Errorf("could not list entries. Aborting. %s", err)
 	}
@@ -58,19 +62,21 @@ func LoadEntries(db *clover.DB) []*models.Entry {
 }
 
 func AddEntry(db *clover.DB, e *models.Entry) error {
-	doc := clover.NewDocument()
+	doc := document.NewDocument()
 	doc.Set("name", e.Name)
 	doc.Set("start", e.Start)
 	doc.Set("end", nil)
-	_, err := db.InsertOne("entries", doc)
+	id, err := db.InsertOne("entries", doc)
 	if err != nil {
 		return fmt.Errorf("Could not write to database: %v", err)
 	}
+	e.ObjectId = id
 	return nil
 }
 
 func CloseDatabase(db *clover.DB) {
 	log.Infof("closing database file")
+	db.ExportCollection(collectionName, path.Join(os.TempDir(), "timekeeper.json"))
 	err := db.Close()
 	if err != nil {
 		log.Errorf("could not close db. %s", err)
@@ -78,7 +84,7 @@ func CloseDatabase(db *clover.DB) {
 }
 
 func GetRunning(db *clover.DB) (*models.Entry, error) {
-	entries, err := db.Query(collectionName).Where(clover.Field("end").IsNil()).FindAll()
+	entries, err := db.FindAll(query.NewQuery(collectionName).Where(query.Field("end").IsNil()))
 	if err != nil {
 		log.Errorf("could not list entries. Aborting. %s", err)
 	}
@@ -92,15 +98,26 @@ func ExportEntries(db *clover.DB) error {
 	return db.ExportCollection(collectionName, "entries.json")
 }
 
-func unmarshallDoc(doc *clover.Document) (*models.Entry, error) {
+func UpdateEntry(db *clover.DB, e *models.Entry) error {
+	return db.UpdateById(collectionName, e.ObjectId, func(doc *document.Document) *document.Document {
+		doc.Set("name", e.Name)
+		doc.Set("start", e.Start)
+		doc.Set("end", e.End)
+		return doc
+	})
+}
+
+func unmarshallDoc(doc *document.Document) (*models.Entry, error) {
 	entry := &entry{}
 	err := doc.Unmarshal(entry)
 	if err != nil {
 		return nil, fmt.Errorf("could not unmarshal document. %s", err)
 	}
+	doc.ObjectId()
 	return &models.Entry{
-		Start: entry.Start,
-		End:   entry.End,
-		Name:  entry.Name,
+		ObjectId: doc.ObjectId(),
+		Start:    entry.Start,
+		End:      entry.End,
+		Name:     entry.Name,
 	}, nil
 }

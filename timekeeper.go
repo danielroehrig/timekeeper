@@ -21,7 +21,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/ostafen/clover"
+	"github.com/ostafen/clover/v2"
 	"github.com/spf13/viper"
 )
 
@@ -123,20 +123,34 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.description, cmd = m.description.Update(msg)
 		return m, cmd
 	case NextFocusMsg:
+		log.Debugf("Next Focus Message received: %d", m.focused)
 		switch m.focused {
 		case TaskInput:
+			m.entryList.FilterInput.Focus()
+			m.focused = EntryList
+		case TaskRunning:
 			m.entryList.FilterInput.Focus()
 			m.focused = EntryList
 		case EntryList:
 			m.description.Focus()
 			m.focused = Editor
 		case Editor:
-			m.taskEntry.Focus()
-			m.focused = TaskInput
+			if m.runningTask == nil {
+				m.taskEntry.Focus()
+				m.focused = TaskInput
+			} else {
+				m.taskEntry.Focus()
+				m.focused = TaskRunning
+			}
 		}
 	case StopRunningTaskMsg:
+		log.Debugf("Stop Running Task Message")
 		taskEnd := time.Now()
 		m.runningTask.End = &taskEnd
+		err := dbaccess.UpdateEntry(db, m.runningTask)
+		if err != nil {
+			log.Errorf("Error updating entry: %v", err)
+		}
 		m.focused = TaskInput
 	}
 	return m, cmd
@@ -156,12 +170,14 @@ func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.focused {
 	case TaskInput:
 		return m.handleKeypressTaskInput(msg)
+	case TaskRunning:
+		return m.handleKeypressTaskRunning(msg)
 	case Editor:
 		return m.handleKeypressEditor(msg)
 	case EntryList:
 		return m.handleKeypressTaskList(msg)
 	default:
-		log.Debugf("no handle for focus", m.focused)
+		log.Debugf("no handle for focus: %v", m.focused)
 		return m, nil
 	}
 }
@@ -181,9 +197,10 @@ func (m model) handleKeypressTaskInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) handleKeypressTaskRunning(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	key := msg.String()
+	key := msg.Type
 	switch key {
-	case "space":
+	case tea.KeySpace:
+		log.Debugf("Is space triggered?")
 		return m, func() tea.Msg {
 			return StopRunningTaskMsg{}
 		}
