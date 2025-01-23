@@ -42,6 +42,8 @@ type model struct {
 	entryList   list.Model
 	description textarea.Model
 	theme       themes.Theme
+	width       int
+	height      int
 }
 
 type EntriesLoadedMsg struct {
@@ -64,7 +66,7 @@ type (
 var (
 	inputStyle     = lipgloss.NewStyle()
 	subtextStyle   = lipgloss.NewStyle()
-	borderedWidget = lipgloss.NewStyle().Border(lipgloss.RoundedBorder(), true).Width(20)
+	borderedWidget = lipgloss.NewStyle().Border(lipgloss.RoundedBorder(), true)
 )
 
 func initialModel() model {
@@ -83,6 +85,8 @@ func initialModel() model {
 		entryList:   list.New(entries, ui.EntryListDelegate{}, 40, 10),
 		description: textarea.New(),
 		theme:       themes.TokyoNight,
+		width:       10,
+		height:      10,
 	}
 }
 
@@ -152,6 +156,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			log.Errorf("Error updating entry: %v", err)
 		}
 		m.focused = TaskInput
+	case tea.WindowSizeMsg:
+		log.Debugf("Window Size Changed")
+		m.width, m.height = msg.Width, msg.Height
 	}
 	return m, cmd
 }
@@ -230,25 +237,29 @@ func (m model) runningTaskView() string {
 }
 
 func (m model) taskInputView() string {
+	width := (m.width / 2) - 2
 	if m.focused == TaskInput {
-		return borderedWidget.BorderForeground(m.theme.Accent).Render(m.taskEntry.View())
+		return borderedWidget.Width(width).BorderForeground(m.theme.Accent).Render(m.taskEntry.View())
 	} else {
-		return borderedWidget.Render(m.taskEntry.View())
+		return borderedWidget.Width(width).Render(m.taskEntry.View())
 	}
 }
 
 func (m model) EditorView() string {
+	height := m.height - 4
+	width := (m.width / 2) - 1
 	if m.focused == Editor {
-		return borderedWidget.BorderForeground(m.theme.Accent).Render(m.description.View())
+		return borderedWidget.Width(width).Height(height).BorderForeground(m.theme.Accent).Render(m.description.View())
 	}
-	return borderedWidget.Render(m.description.View())
+	return borderedWidget.Width(width).Height(height).Render(m.description.View())
 }
 
 func (m model) TaskListView() string {
+	width := (m.width / 2) - 2
 	if m.focused == EntryList {
-		return borderedWidget.BorderForeground(m.theme.Accent).Render(m.entryList.View())
+		return borderedWidget.BorderForeground(m.theme.Accent).Width(width).Render(m.entryList.View())
 	}
-	return borderedWidget.Render(m.entryList.View())
+	return borderedWidget.Width(width).Render(m.entryList.View())
 }
 
 func (m model) View() string {
