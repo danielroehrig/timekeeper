@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/danielroehrig/timekeeper/models"
 	"io"
+	"time"
 )
 
 type EntryListDelegate struct{}
@@ -15,7 +16,11 @@ func (d EntryListDelegate) Render(w io.Writer, m list.Model, index int, item lis
 	if !ok {
 		return
 	}
-	str := fmt.Sprintf("%d. %s", index+1, e.Name)
+	dur := time.Duration(0 * time.Second)
+	if e.End != nil {
+		dur = e.End.Sub(e.Start)
+	}
+	str := fmt.Sprintf("%d. %s - %s", index+1, e.Name, dur.Round(time.Second))
 	fmt.Fprint(w, str)
 }
 

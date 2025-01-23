@@ -4,7 +4,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -229,7 +228,7 @@ func (m model) handleKeypressTaskList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m model) runningTaskView() string {
 	elapsed := time.Since(m.runningTask.Start)
-	inner := lipgloss.JoinVertical(lipgloss.Left, inputStyle.Render(m.runningTask.Name), subtextStyle.Render(strconv.Itoa(int(elapsed.Seconds())), "press space to stop"))
+	inner := lipgloss.JoinVertical(lipgloss.Left, inputStyle.Render(m.runningTask.Name), subtextStyle.Render(elapsed.Round(time.Second).String()))
 	if m.focused == TaskInput {
 		return borderedWidget.BorderForeground(m.theme.Accent).Render(inner)
 	}
