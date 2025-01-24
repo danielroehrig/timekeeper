@@ -49,16 +49,15 @@ type EntriesLoadedMsg struct {
 	entries []*models.Entry
 }
 
-type AddEntryMsg struct {
-	description string
-}
-type EntryAddedMsg struct {
-	entry *models.Entry
-}
+type AddEntryMsg struct{}
+type EntryAddedMsg struct{}
 
 type (
-	NextFocusMsg       struct{}
-	PrevFocusMsg       struct{}
+	NextFocusMsg    struct{}
+	PrevFocusMsg    struct{}
+	StartRunningMsg struct {
+		runningTask *models.Entry
+	}
 	StopRunningTaskMsg struct{}
 )
 
@@ -101,17 +100,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return m.handleKeypress(msg)
-	case AddEntryMsg:
-		return m, addNewEntryToDatabase(db, msg.description)
 	case EntriesLoadedMsg:
 		log.Debugf("Received entries from database")
 		m.entryList = convertEntriesToList(msg.entries)
 		return m, nil
-	case EntryAddedMsg:
-		m.runningTask = msg.entry
-		m.entryList.InsertItem(0, msg.entry)
+	case StartRunningMsg:
+		m.runningTask = msg.runningTask
 		m.description.Focus()
 		m.focused = Editor
+	case EntryAddedMsg:
+		m.runningTask = nil
+		m.taskEntry.Reset()
+		m.taskEntry.Focus()
+		m.focused = TaskInput
 	case stopwatch.TickMsg:
 		log.Debugf("Tick Message received")
 		m.stopwatch, cmd = m.stopwatch.Update(msg)
@@ -150,11 +151,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		log.Debugf("Stop Running Task Message")
 		taskEnd := time.Now()
 		m.runningTask.End = &taskEnd
-		err := dbaccess.UpdateEntry(db, m.runningTask)
-		if err != nil {
-			log.Errorf("Error updating entry: %v", err)
+		return m, func() tea.Msg {
+			return AddEntryMsg{}
 		}
-		m.focused = TaskInput
+	case AddEntryMsg:
+		err := dbaccess.AddEntry(db, m.runningTask)
+		if err != nil {
+			log.Errorf("Error adding entry: %v", err)
+		}
+		m.entryList.InsertItem(0, m.runningTask)
+		return m, func() tea.Msg {
+			return EntryAddedMsg{}
+		}
 	case tea.WindowSizeMsg:
 		log.Debugf("Window Size Changed")
 		m.width, m.height = msg.Width, msg.Height
@@ -193,7 +201,12 @@ func (m model) handleKeypressTaskInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch key {
 	case "enter":
 		return m, func() tea.Msg {
-			return AddEntryMsg{description: m.taskEntry.Value()}
+			runningTask := &models.Entry{
+				Start: time.Now(),
+				End:   nil,
+				Name:  m.taskEntry.Value(),
+			}
+			return StartRunningMsg{runningTask: runningTask}
 		}
 	default:
 		v, cmd := m.taskEntry.Update(msg)
@@ -229,7 +242,7 @@ func (m model) handleKeypressTaskList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) runningTaskView() string {
 	elapsed := time.Since(m.runningTask.Start)
 	inner := lipgloss.JoinVertical(lipgloss.Left, inputStyle.Render(m.runningTask.Name), subtextStyle.Render(elapsed.Round(time.Second).String()))
-	if m.focused == TaskInput {
+	if m.focused == TaskRunning {
 		return borderedWidget.BorderForeground(m.theme.Accent).Render(inner)
 	}
 	return borderedWidget.Render(inner)
@@ -341,20 +354,4 @@ func convertEntriesToList(entries []*models.Entry) list.Model {
 		listEntries = append(listEntries, entry)
 	}
 	return list.New(listEntries, ui.EntryListDelegate{}, 40, 10)
-}
-
-func addNewEntryToDatabase(db *clover.DB, description string) tea.Cmd {
-	log.Debugf("Adding new entry...")
-	return func() tea.Msg {
-		e := &models.Entry{
-			Start: time.Now(),
-			End:   nil,
-			Name:  description,
-		}
-		err := dbaccess.AddEntry(db, e)
-		if err != nil {
-			log.Errorf("Could not write to database: %v", err)
-		}
-		return EntryAddedMsg{entry: e}
-	}
 }
