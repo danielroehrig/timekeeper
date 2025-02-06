@@ -73,6 +73,7 @@ func initialModel() model {
 	entryText.Focus()
 
 	entries := make([]list.Item, 0)
+	entryList := list.New(entries, ui.EntryListDelegate{}, 40, 10)
 	theme := themes.TokyoNight
 	inputStyle = inputStyle.Bold(false).Foreground(theme.Accent)
 
@@ -80,7 +81,7 @@ func initialModel() model {
 		focused:     TaskInput,
 		taskEntry:   entryText,
 		stopwatch:   stopwatch.New(),
-		entryList:   list.New(entries, ui.EntryListDelegate{}, 40, 10),
+		entryList:   entryList,
 		description: textarea.New(),
 		theme:       themes.TokyoNight,
 		width:       10,

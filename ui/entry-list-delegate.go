@@ -22,6 +22,9 @@ func (d EntryListDelegate) Render(w io.Writer, m list.Model, index int, item lis
 		dur = e.End.Sub(e.Start)
 	}
 	str := fmt.Sprintf("%d. %s - %s", index+1, e.Name, dur.Round(time.Second))
+	if m.Index() == index {
+		str = fmt.Sprintf(">> %s", str)
+	}
 	fmt.Fprint(w, str)
 }
 
