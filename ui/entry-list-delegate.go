@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/danielroehrig/timekeeper/log"
 	"github.com/danielroehrig/timekeeper/models"
 	"io"
 	"time"
@@ -16,7 +17,7 @@ func (d EntryListDelegate) Render(w io.Writer, m list.Model, index int, item lis
 	if !ok {
 		return
 	}
-	dur := time.Duration(0 * time.Second)
+	dur := 0 * time.Second
 	if e.End != nil {
 		dur = e.End.Sub(e.Start)
 	}
@@ -32,6 +33,7 @@ func (d EntryListDelegate) Spacing() int {
 	return 0
 }
 
-func (d EntryListDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd {
+func (d EntryListDelegate) Update(_ tea.Msg, m *list.Model) tea.Cmd {
+	log.Debugf("list update %d", m.Index())
 	return nil
 }

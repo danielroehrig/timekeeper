@@ -166,6 +166,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		log.Debugf("Window Size Changed")
 		m.width, m.height = msg.Width, msg.Height
+	case list.FilterMatchesMsg:
+		log.Debugf("Filter Matches Message")
+		m.entryList, _ = m.entryList.Update(msg)
 	}
 	return m, cmd
 }
