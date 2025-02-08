@@ -1,10 +1,6 @@
-package main
+package app
 
 import (
-	"os"
-	"path"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/cursor"
@@ -21,7 +17,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ostafen/clover/v2"
-	"github.com/spf13/viper"
 )
 
 type Focused byte
@@ -34,6 +29,7 @@ const (
 )
 
 type model struct {
+	db          *clover.DB
 	focused     Focused
 	runningTask *models.Entry
 	stopwatch   stopwatch.Model
@@ -67,7 +63,7 @@ var (
 	borderedWidget = lipgloss.NewStyle().Border(lipgloss.RoundedBorder(), true)
 )
 
-func initialModel() model {
+func initialModel(db *clover.DB) model {
 	entryText := textinput.New()
 	entryText.Placeholder = "What are you doing right now?"
 	entryText.Focus()
@@ -78,6 +74,7 @@ func initialModel() model {
 	inputStyle = inputStyle.Bold(false).Foreground(theme.Accent)
 
 	return model{
+		db:          db,
 		focused:     TaskInput,
 		taskEntry:   entryText,
 		stopwatch:   stopwatch.New(),
@@ -89,10 +86,8 @@ func initialModel() model {
 	}
 }
 
-var db *clover.DB
-
 func (m model) Init() tea.Cmd {
-	return tea.Sequence(loadEntries(db), m.stopwatch.Init(), m.stopwatch.Start(), textinput.Blink)
+	return tea.Sequence(loadEntries(m.db), m.stopwatch.Init(), m.stopwatch.Start(), textinput.Blink)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -156,7 +151,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return AddEntryMsg{}
 		}
 	case AddEntryMsg:
-		err := dbaccess.AddEntry(db, m.runningTask)
+		err := dbaccess.AddEntry(m.db, m.runningTask)
 		if err != nil {
 			log.Errorf("Error adding entry: %v", err)
 		}
@@ -296,52 +291,10 @@ func (m model) View() string {
 	return s
 }
 
-func main() {
-	switch strings.ToLower(os.Getenv("LOGLEVEL")) {
-	case "debug":
-		log.SetLogLevel(log.LevelDebug)
-	case "info":
-		log.SetLogLevel(log.LevelInfo)
-	case "warn":
-		log.SetLogLevel(log.LevelWarn)
-	case "error":
-		log.SetLogLevel(log.LevelError)
-	}
-	f, err := tea.LogToFile(path.Join(os.TempDir(), "timekeeper.log"), "")
-	if err != nil {
-		log.Errorf("Failed to open log file: %v", err)
-	}
-	defer f.Close()
-
-	loadConfig()
-	db = dbaccess.OpenDatabase()
-
-	defer dbaccess.CloseDatabase(db)
-
-	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
-		log.Errorf("Error running program: %v", err)
-	}
-}
-
-func loadConfig() {
-	log.Infof("Loading configuration...")
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		log.Errorf("could not find config dir. Aborting. %s", err)
-	}
-	configFile := filepath.Join(configDir, "timekeeper", "config.yml")
-	err = os.Mkdir(filepath.Dir(configFile), 0755)
-	if err != nil && !os.IsExist(err) {
-		log.Errorf("could not create config folder %v", err)
-	}
-	viper.SetConfigFile(configFile)
-	viper.SetDefault("someValue", "foobar")
-	viper.Set("foo", "bar")
-	err = viper.WriteConfig()
-	if err != nil {
-		log.Errorf("could not write to config %v", err)
-	}
+func Run(db *clover.DB) error {
+	p := tea.NewProgram(initialModel(db), tea.WithAltScreen())
+	_, err := p.Run()
+	return err
 }
 
 func loadEntries(db *clover.DB) tea.Cmd {
