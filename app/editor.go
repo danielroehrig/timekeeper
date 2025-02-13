@@ -1,11 +1,22 @@
 package app
 
-import tea "github.com/charmbracelet/bubbletea"
+import (
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+type UpdateEditorContentsMessage struct {
+	value string
+}
 
 func (m model) handleKeypressEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	v, cmd := m.description.Update(msg)
 	m.description = v
-	return m, cmd
+	updateCmd := func() tea.Msg {
+		return UpdateEditorContentsMessage{
+			value: v.Value(),
+		}
+	}
+	return m, tea.Batch(updateCmd, cmd)
 }
 
 func (m model) EditorView() string {

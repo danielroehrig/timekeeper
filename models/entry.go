@@ -9,6 +9,7 @@ type Entry struct {
 	Start    time.Time
 	End      *time.Time
 	Name     string
+	Content  string
 }
 
 func (e *Entry) FilterValue() string {

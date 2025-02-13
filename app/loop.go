@@ -160,6 +160,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case list.FilterMatchesMsg:
 		log.Debugf("Filter Matches Message")
 		m.entryList, _ = m.entryList.Update(msg)
+	case UpdateEditorContentsMessage:
+		log.Debugf("Update Editor Contents Message")
+		// TODO is task running? Or is another one selected? how do we keep those apart?
 	}
 	return m, cmd
 }

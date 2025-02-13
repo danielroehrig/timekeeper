@@ -20,6 +20,7 @@ type entry struct {
 	Name     string     `clover:"name"`
 	End      *time.Time `clover:"end"`
 	Start    time.Time  `clover:"start"`
+	Content  string     `clover:"content"`
 }
 
 func OpenDatabase() *clover.DB {
@@ -66,9 +67,10 @@ func AddEntry(db *clover.DB, e *models.Entry) error {
 	doc.Set("name", e.Name)
 	doc.Set("start", e.Start)
 	doc.Set("end", nil)
+	doc.Set("content", e.Content)
 	id, err := db.InsertOne("entries", doc)
 	if err != nil {
-		return fmt.Errorf("Could not write to database: %v", err)
+		return fmt.Errorf("could not write to database: %w", err)
 	}
 	e.ObjectId = id
 	return nil
@@ -103,6 +105,7 @@ func UpdateEntry(db *clover.DB, e *models.Entry) error {
 		doc.Set("name", e.Name)
 		doc.Set("start", e.Start)
 		doc.Set("end", e.End)
+		doc.Set("content", e.Content)
 		return doc
 	})
 }
@@ -119,5 +122,6 @@ func unmarshallDoc(doc *document.Document) (*models.Entry, error) {
 		Start:    entry.Start,
 		End:      entry.End,
 		Name:     entry.Name,
+		Content:  entry.Content,
 	}, nil
 }
