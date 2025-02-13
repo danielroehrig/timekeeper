@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/danielroehrig/timekeeper/app/ui"
 	"time"
 
 	"github.com/charmbracelet/bubbles/cursor"
@@ -8,14 +9,12 @@ import (
 	"github.com/charmbracelet/bubbles/stopwatch"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	dbaccess "github.com/danielroehrig/timekeeper/db"
 	"github.com/danielroehrig/timekeeper/log"
 	"github.com/danielroehrig/timekeeper/models"
 	"github.com/danielroehrig/timekeeper/themes"
-	"github.com/danielroehrig/timekeeper/ui"
-
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/ostafen/clover/v2"
 )
 
@@ -49,12 +48,8 @@ type AddEntryMsg struct{}
 type EntryAddedMsg struct{}
 
 type (
-	NextFocusMsg    struct{}
-	PrevFocusMsg    struct{}
-	StartRunningMsg struct {
-		runningTask *models.Entry
-	}
-	StopRunningTaskMsg struct{}
+	NextFocusMsg struct{}
+	PrevFocusMsg struct{}
 )
 
 var (
@@ -193,84 +188,6 @@ func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		log.Debugf("no handle for focus: %v", m.focused)
 		return m, nil
 	}
-}
-
-func (m model) handleKeypressTaskInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	key := msg.String()
-	switch key {
-	case "enter":
-		return m, func() tea.Msg {
-			runningTask := &models.Entry{
-				Start: time.Now(),
-				End:   nil,
-				Name:  m.taskEntry.Value(),
-			}
-			return StartRunningMsg{runningTask: runningTask}
-		}
-	default:
-		v, cmd := m.taskEntry.Update(msg)
-		m.taskEntry = v
-		return m, cmd
-	}
-}
-
-func (m model) handleKeypressTaskRunning(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	key := msg.Type
-	switch key {
-	case tea.KeySpace:
-		log.Debugf("Is space triggered?")
-		return m, func() tea.Msg {
-			return StopRunningTaskMsg{}
-		}
-	}
-	return m, nil
-}
-
-func (m model) handleKeypressEditor(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	v, cmd := m.description.Update(msg)
-	m.description = v
-	return m, cmd
-}
-
-func (m model) handleKeypressTaskList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	v, cmd := m.entryList.Update(msg)
-	m.entryList = v
-	return m, cmd
-}
-
-func (m model) runningTaskView() string {
-	elapsed := time.Since(m.runningTask.Start)
-	inner := lipgloss.JoinVertical(lipgloss.Left, inputStyle.Render(m.runningTask.Name), subtextStyle.Render(elapsed.Round(time.Second).String()))
-	if m.focused == TaskRunning {
-		return borderedWidget.BorderForeground(m.theme.Accent).Render(inner)
-	}
-	return borderedWidget.Render(inner)
-}
-
-func (m model) taskInputView() string {
-	width := (m.width / 2) - 2
-	if m.focused == TaskInput {
-		return borderedWidget.Width(width).BorderForeground(m.theme.Accent).Render(m.taskEntry.View())
-	} else {
-		return borderedWidget.Width(width).Render(m.taskEntry.View())
-	}
-}
-
-func (m model) EditorView() string {
-	height := m.height - 4
-	width := (m.width / 2) - 1
-	if m.focused == Editor {
-		return borderedWidget.Width(width).Height(height).BorderForeground(m.theme.Accent).Render(m.description.View())
-	}
-	return borderedWidget.Width(width).Height(height).Render(m.description.View())
-}
-
-func (m model) TaskListView() string {
-	width := (m.width / 2) - 2
-	if m.focused == EntryList {
-		return borderedWidget.BorderForeground(m.theme.Accent).Width(width).Render(m.entryList.View())
-	}
-	return borderedWidget.Width(width).Render(m.entryList.View())
 }
 
 func (m model) View() string {

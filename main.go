@@ -16,6 +16,7 @@ import (
 var db *clover.DB
 
 func main() {
+	// set up loggin
 	switch strings.ToLower(os.Getenv("LOGLEVEL")) {
 	case "debug":
 		log.SetLogLevel(log.LevelDebug)
@@ -32,11 +33,14 @@ func main() {
 	}
 	defer f.Close()
 
+	// log configs
 	loadConfig()
-	db = dbaccess.OpenDatabase()
 
+	// set up database access
+	db = dbaccess.OpenDatabase()
 	defer dbaccess.CloseDatabase(db)
 
+	// run the app
 	if err := app.Run(db); err != nil {
 		log.Errorf("Error running program: %v", err)
 	}
