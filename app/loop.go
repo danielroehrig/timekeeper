@@ -21,8 +21,7 @@ import (
 type Focused byte
 
 const (
-	TaskInput Focused = iota
-	TaskRunning
+	Task Focused = iota
 	EntryList
 	Editor
 )
@@ -32,7 +31,7 @@ type model struct {
 	focused     Focused
 	runningTask *models.Entry
 	stopwatch   stopwatch.Model
-	taskEntry   task.Model
+	task        task.Model
 	entryList   list.Model
 	description textarea.Model
 	theme       themes.Theme
@@ -66,8 +65,8 @@ func initialModel(db *clover.DB) model {
 
 	return model{
 		db:          db,
-		focused:     TaskInput,
-		taskEntry:   task.New(theme),
+		focused:     Task,
+		task:        task.New(theme),
 		stopwatch:   stopwatch.New(),
 		entryList:   entryList,
 		description: textarea.New(),
@@ -96,11 +95,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.runningTask = msg.RunningTask
 		m.description.Focus()
 		m.focused = Editor
-		m.taskEntry, cmd = m.taskEntry.Update(msg)
+		m.task, cmd = m.task.Update(msg)
 		return m, cmd
 	case EntryAddedMsg:
 		m.runningTask = nil
-		m.focused = TaskInput
+		m.focused = Task
 	case stopwatch.TickMsg:
 		//log.Debugf("Tick Message received")
 		m.stopwatch, cmd = m.stopwatch.Update(msg)
@@ -114,34 +113,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// todo only the active input should have the blink animation
 		var dc, te tea.Cmd
 		m.description, dc = m.description.Update(msg)
-		m.taskEntry, te = m.taskEntry.Update(msg)
+		m.task, te = m.task.Update(msg)
 		return m, tea.Batch(dc, te)
 	case NextFocusMsg:
 		log.Debugf("Next Focus Message received: %d", m.focused)
 		switch m.focused {
-		case TaskInput:
-			m.entryList.FilterInput.Focus()
-			m.focused = EntryList
-		case TaskRunning:
+		case Task:
 			m.entryList.FilterInput.Focus()
 			m.focused = EntryList
 		case EntryList:
 			m.description.Focus()
 			m.focused = Editor
 		case Editor:
-			if m.runningTask == nil {
-				//m.taskEntry.Focus()
-				m.focused = TaskInput
-			} else {
-				//m.taskEntry.Focus()
-				m.focused = TaskRunning
-			}
+			m.focused = Task
 		}
 	case task.StopRunningTaskMsg:
 		log.Debugf("Stop Running Task Message")
 		taskEnd := time.Now()
 		m.runningTask.End = &taskEnd
-		m.taskEntry, cmd = m.taskEntry.Update(msg)
+		m.task, cmd = m.task.Update(msg)
 		return m, tea.Batch(cmd, func() tea.Msg {
 			return AddEntryMsg{}
 		})
@@ -157,7 +147,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		log.Debugf("Window Size Changed")
 		m.width, m.height = msg.Width, msg.Height
-		m.taskEntry, _ = m.taskEntry.Update(msg)
+		m.task, _ = m.task.Update(msg)
 	case list.FilterMatchesMsg:
 		log.Debugf("Filter Matches Message")
 		m.entryList, _ = m.entryList.Update(msg)
@@ -180,9 +170,9 @@ func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	switch m.focused {
-	case TaskInput, TaskRunning:
-		tm, cmd := m.taskEntry.Update(msg)
-		m.taskEntry = tm
+	case Task:
+		tm, cmd := m.task.Update(msg)
+		m.task = tm
 		return m, cmd
 	case Editor:
 		return m.handleKeypressEditor(msg)
@@ -200,10 +190,10 @@ func (m model) View() string {
 	leftWidth := (m.width / 2) - 2
 
 	var t string
-	if m.focused == TaskInput || m.focused == TaskRunning {
-		t = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(leftWidth).Render(m.taskEntry.View())
+	if m.focused == Task {
+		t = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(leftWidth).Render(m.task.View())
 	} else {
-		t = themes.BorderedWidget.Width(leftWidth).Render(m.taskEntry.View())
+		t = themes.BorderedWidget.Width(leftWidth).Render(m.task.View())
 	}
 
 	s := lipgloss.JoinVertical(lipgloss.Top, headline.Render("Timekeeper"),
