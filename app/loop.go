@@ -96,10 +96,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.runningTask = msg.RunningTask
 		m.description.Focus()
 		m.focused = Editor
+		m.taskEntry, cmd = m.taskEntry.Update(msg)
+		return m, cmd
 	case EntryAddedMsg:
 		m.runningTask = nil
-		//m.taskEntry.Reset()
-		//m.taskEntry.Focus()
 		m.focused = TaskInput
 	case stopwatch.TickMsg:
 		//log.Debugf("Tick Message received")
@@ -110,7 +110,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.stopwatch, cmd = m.stopwatch.Update(msg)
 		return m, cmd
 	case cursor.BlinkMsg:
-		log.Debugf("Blink Message received")
 		// Textarea should also process cursor blinks.
 		// todo only the active input should have the blink animation
 		var dc, te tea.Cmd
@@ -138,13 +137,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.focused = TaskRunning
 			}
 		}
-	case StopRunningTaskMsg:
+	case task.StopRunningTaskMsg:
 		log.Debugf("Stop Running Task Message")
 		taskEnd := time.Now()
 		m.runningTask.End = &taskEnd
-		return m, func() tea.Msg {
+		m.taskEntry, cmd = m.taskEntry.Update(msg)
+		return m, tea.Batch(cmd, func() tea.Msg {
 			return AddEntryMsg{}
-		}
+		})
 	case AddEntryMsg:
 		err := dbaccess.AddEntry(m.db, m.runningTask)
 		if err != nil {
@@ -180,12 +180,10 @@ func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	switch m.focused {
-	case TaskInput:
+	case TaskInput, TaskRunning:
 		tm, cmd := m.taskEntry.Update(msg)
 		m.taskEntry = tm
 		return m, cmd
-	case TaskRunning:
-		return m.handleKeypressTaskRunning(msg)
 	case Editor:
 		return m.handleKeypressEditor(msg)
 	case EntryList:
@@ -199,12 +197,13 @@ func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	//log.Debugf("main view called")
 	headline := lipgloss.NewStyle().Bold(true).Foreground(m.theme.AltAccent).PaddingLeft(2).PaddingTop(1).MarginBottom(1)
+	leftWidth := (m.width / 2) - 2
 
 	var t string
-	if m.runningTask == nil {
-		t = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(m.width / 2).Render(m.taskEntry.View())
+	if m.focused == TaskInput || m.focused == TaskRunning {
+		t = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(leftWidth).Render(m.taskEntry.View())
 	} else {
-		t = m.runningTaskView()
+		t = themes.BorderedWidget.Width(leftWidth).Render(m.taskEntry.View())
 	}
 
 	s := lipgloss.JoinVertical(lipgloss.Top, headline.Render("Timekeeper"),
