@@ -2,13 +2,13 @@ package app
 
 import (
 	"github.com/danielroehrig/timekeeper/app/ui"
+	"github.com/danielroehrig/timekeeper/app/ui/task"
 	"time"
 
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/stopwatch"
 	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	dbaccess "github.com/danielroehrig/timekeeper/db"
@@ -32,7 +32,7 @@ type model struct {
 	focused     Focused
 	runningTask *models.Entry
 	stopwatch   stopwatch.Model
-	taskEntry   textinput.Model
+	taskEntry   task.Model
 	entryList   list.Model
 	description textarea.Model
 	theme       themes.Theme
@@ -59,10 +59,6 @@ var (
 )
 
 func initialModel(db *clover.DB) model {
-	entryText := textinput.New()
-	entryText.Placeholder = "What are you doing right now?"
-	entryText.Focus()
-
 	entries := make([]list.Item, 0)
 	entryList := list.New(entries, ui.EntryListDelegate{}, 40, 10)
 	theme := themes.TokyoNight
@@ -71,7 +67,7 @@ func initialModel(db *clover.DB) model {
 	return model{
 		db:          db,
 		focused:     TaskInput,
-		taskEntry:   entryText,
+		taskEntry:   task.New(theme),
 		stopwatch:   stopwatch.New(),
 		entryList:   entryList,
 		description: textarea.New(),
@@ -82,12 +78,12 @@ func initialModel(db *clover.DB) model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Sequence(loadEntries(m.db), m.stopwatch.Init(), m.stopwatch.Start(), textinput.Blink)
+	return tea.Sequence(loadEntries(m.db), m.stopwatch.Init(), m.stopwatch.Start(), cursor.Blink)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
-	log.Debugf("main update %v", msg)
+	//log.Debugf("main update %v", msg)
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return m.handleKeypress(msg)
@@ -95,17 +91,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		log.Debugf("Received entries from database")
 		m.entryList = convertEntriesToList(msg.entries)
 		return m, nil
-	case StartRunningMsg:
-		m.runningTask = msg.runningTask
+	case task.StartRunningMsg:
+		log.Debugf("Starting running task: %v", msg)
+		m.runningTask = msg.RunningTask
 		m.description.Focus()
 		m.focused = Editor
 	case EntryAddedMsg:
 		m.runningTask = nil
-		m.taskEntry.Reset()
-		m.taskEntry.Focus()
+		//m.taskEntry.Reset()
+		//m.taskEntry.Focus()
 		m.focused = TaskInput
 	case stopwatch.TickMsg:
-		log.Debugf("Tick Message received")
+		//log.Debugf("Tick Message received")
 		m.stopwatch, cmd = m.stopwatch.Update(msg)
 		return m, cmd
 	case stopwatch.StartStopMsg:
@@ -113,10 +110,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.stopwatch, cmd = m.stopwatch.Update(msg)
 		return m, cmd
 	case cursor.BlinkMsg:
+		log.Debugf("Blink Message received")
 		// Textarea should also process cursor blinks.
-		var cmd tea.Cmd
-		m.description, cmd = m.description.Update(msg)
-		return m, cmd
+		// todo only the active input should have the blink animation
+		var dc, te tea.Cmd
+		m.description, dc = m.description.Update(msg)
+		m.taskEntry, te = m.taskEntry.Update(msg)
+		return m, tea.Batch(dc, te)
 	case NextFocusMsg:
 		log.Debugf("Next Focus Message received: %d", m.focused)
 		switch m.focused {
@@ -131,10 +131,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focused = Editor
 		case Editor:
 			if m.runningTask == nil {
-				m.taskEntry.Focus()
+				//m.taskEntry.Focus()
 				m.focused = TaskInput
 			} else {
-				m.taskEntry.Focus()
+				//m.taskEntry.Focus()
 				m.focused = TaskRunning
 			}
 		}
@@ -157,6 +157,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		log.Debugf("Window Size Changed")
 		m.width, m.height = msg.Width, msg.Height
+		m.taskEntry, _ = m.taskEntry.Update(msg)
 	case list.FilterMatchesMsg:
 		log.Debugf("Filter Matches Message")
 		m.entryList, _ = m.entryList.Update(msg)
@@ -180,7 +181,9 @@ func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	switch m.focused {
 	case TaskInput:
-		return m.handleKeypressTaskInput(msg)
+		tm, cmd := m.taskEntry.Update(msg)
+		m.taskEntry = tm
+		return m, cmd
 	case TaskRunning:
 		return m.handleKeypressTaskRunning(msg)
 	case Editor:
@@ -194,12 +197,12 @@ func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	log.Debugf("main view called")
+	//log.Debugf("main view called")
 	headline := lipgloss.NewStyle().Bold(true).Foreground(m.theme.AltAccent).PaddingLeft(2).PaddingTop(1).MarginBottom(1)
 
 	var t string
 	if m.runningTask == nil {
-		t = m.taskInputView()
+		t = m.taskEntry.View()
 	} else {
 		t = m.runningTaskView()
 	}

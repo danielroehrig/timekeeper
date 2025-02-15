@@ -8,3 +8,9 @@ type Theme struct {
 	Accent     lipgloss.Color
 	AltAccent  lipgloss.Color
 }
+
+var (
+	InputStyle     = lipgloss.NewStyle()
+	SubtextStyle   = lipgloss.NewStyle()
+	BorderedWidget = lipgloss.NewStyle().Border(lipgloss.RoundedBorder(), true)
+)
