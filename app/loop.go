@@ -202,7 +202,7 @@ func (m model) View() string {
 
 	var t string
 	if m.runningTask == nil {
-		t = m.taskEntry.View()
+		t = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(m.width / 2).Render(m.taskEntry.View())
 	} else {
 		t = m.runningTaskView()
 	}

@@ -4,7 +4,6 @@ import (
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/danielroehrig/timekeeper/log"
 	"github.com/danielroehrig/timekeeper/models"
 	"github.com/danielroehrig/timekeeper/themes"
 	"time"
@@ -25,8 +24,8 @@ func New(theme themes.Theme) Model {
 	m := Model{
 		task:    textinput.New(),
 		focused: true,
-		width:   10,
-		theme:   theme,
+		width:   10,    // might be needed to tweak max input characters or placeholder message
+		theme:   theme, // might be needed to style inner components
 	}
 	m.task.Placeholder = "Tell me what you are doing"
 	m.task.Focus()
@@ -38,16 +37,12 @@ func (m Model) Init() tea.Cmd {
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
-	log.Debugf("task update: %s", msg)
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		log.Debugf("task key msg: %s", msg)
 		return m.handleKeypressTaskInput(msg)
 	case tea.WindowSizeMsg:
-		log.Debugf("task window size: %d", msg.Width)
 		m.width = msg.Width
 	case cursor.BlinkMsg:
-		log.Debugf("task blink msg: %s", msg)
 		var cmd tea.Cmd
 		m.task, cmd = m.task.Update(msg)
 		return m, cmd
@@ -75,10 +70,5 @@ func (m Model) handleKeypressTaskInput(msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-	width := (m.width / 2) - 2
-	if m.focused {
-		return themes.BorderedWidget.Width(width).BorderForeground(m.theme.Accent).Render(m.task.View())
-	} else {
-		return themes.BorderedWidget.Width(width).Render(m.task.View())
-	}
+	return m.task.View()
 }
