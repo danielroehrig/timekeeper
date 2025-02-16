@@ -142,6 +142,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.entryList, _ = m.entryList.Update(msg)
 	case editor.UpdateEditorContentsMessage:
 		log.Debugf("Update Editor Contents Message")
+		if m.runningTask != nil {
+			m.runningTask.Content = msg.Value
+		}
 		// TODO is task running? Or is another one selected? how do we keep those apart?
 	}
 	return m, cmd
@@ -164,8 +167,9 @@ func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.task = tm
 		return m, cmd
 	case Editor:
-		m.description, _ = m.description.Update(msg)
-		return m, nil
+		var cmd tea.Cmd
+		m.description, cmd = m.description.Update(msg)
+		return m, cmd
 	case EntryList:
 		el, cmd := m.entryList.Update(msg)
 		m.entryList = el

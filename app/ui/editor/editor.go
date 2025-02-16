@@ -6,7 +6,7 @@ import (
 )
 
 type UpdateEditorContentsMessage struct {
-	value string
+	Value string
 }
 
 type Model struct {
@@ -39,7 +39,7 @@ func (m Model) handleKeypressEditor(msg tea.KeyMsg) (Model, tea.Cmd) {
 	m.content = v
 	updateCmd := func() tea.Msg {
 		return UpdateEditorContentsMessage{
-			value: v.Value(),
+			Value: v.Value(),
 		}
 	}
 	return m, tea.Batch(updateCmd, cmd)
