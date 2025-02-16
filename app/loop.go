@@ -1,7 +1,7 @@
 package app
 
 import (
-	"github.com/danielroehrig/timekeeper/app/ui"
+	l "github.com/danielroehrig/timekeeper/app/ui/list"
 	"github.com/danielroehrig/timekeeper/app/ui/task"
 	"time"
 
@@ -32,18 +32,16 @@ type model struct {
 	runningTask *models.Entry
 	stopwatch   stopwatch.Model
 	task        task.Model
-	entryList   list.Model
+	entryList   l.Model
 	description textarea.Model
 	theme       themes.Theme
 	width       int
 	height      int
 }
 
-type EntriesLoadedMsg struct {
-	entries []*models.Entry
+type AddEntryMsg struct {
+	Entry *models.Entry
 }
-
-type AddEntryMsg struct{}
 type EntryAddedMsg struct{}
 
 type (
@@ -58,8 +56,6 @@ var (
 )
 
 func initialModel(db *clover.DB) model {
-	entries := make([]list.Item, 0)
-	entryList := list.New(entries, ui.EntryListDelegate{}, 40, 10)
 	theme := themes.TokyoNight
 	inputStyle = inputStyle.Bold(false).Foreground(theme.Accent)
 
@@ -68,7 +64,7 @@ func initialModel(db *clover.DB) model {
 		focused:     Task,
 		task:        task.New(theme),
 		stopwatch:   stopwatch.New(),
-		entryList:   entryList,
+		entryList:   l.New(),
 		description: textarea.New(),
 		theme:       themes.TokyoNight,
 		width:       10,
@@ -86,10 +82,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return m.handleKeypress(msg)
-	case EntriesLoadedMsg:
+	case l.EntriesLoadedMsg:
 		log.Debugf("Received entries from database")
-		m.entryList = convertEntriesToList(msg.entries)
-		return m, nil
+		m.entryList, cmd = m.entryList.Update(msg)
+		return m, cmd
 	case task.StartRunningMsg:
 		log.Debugf("Starting running task: %v", msg)
 		m.runningTask = msg.RunningTask
@@ -119,7 +115,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		log.Debugf("Next Focus Message received: %d", m.focused)
 		switch m.focused {
 		case Task:
-			m.entryList.FilterInput.Focus()
+			//m.entryList.FilterInput.Focus()
 			m.focused = EntryList
 		case EntryList:
 			m.description.Focus()
@@ -133,14 +129,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.runningTask.End = &taskEnd
 		m.task, cmd = m.task.Update(msg)
 		return m, tea.Batch(cmd, func() tea.Msg {
-			return AddEntryMsg{}
+			return AddEntryMsg{
+				Entry: m.runningTask,
+			}
 		})
 	case AddEntryMsg:
 		err := dbaccess.AddEntry(m.db, m.runningTask)
 		if err != nil {
 			log.Errorf("Error adding entry: %v", err)
 		}
-		m.entryList.InsertItem(0, m.runningTask)
+		m.entryList, _ = m.entryList.Update(l.AddEntryMsg{Entry: msg.Entry})
 		return m, func() tea.Msg {
 			return EntryAddedMsg{}
 		}
@@ -177,7 +175,9 @@ func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case Editor:
 		return m.handleKeypressEditor(msg)
 	case EntryList:
-		return m.handleKeypressTaskList(msg)
+		el, cmd := m.entryList.Update(msg)
+		m.entryList = el
+		return m, cmd
 	default:
 		log.Debugf("no handle for focus: %v", m.focused)
 		return m, nil
@@ -195,10 +195,16 @@ func (m model) View() string {
 	} else {
 		t = themes.BorderedWidget.Width(leftWidth).Render(m.task.View())
 	}
+	var e string
+	if m.focused == EntryList {
+		e = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(leftWidth).Render(m.entryList.View())
+	} else {
+		e = themes.BorderedWidget.Width(leftWidth).Render(m.entryList.View())
+	}
 
 	s := lipgloss.JoinVertical(lipgloss.Top, headline.Render("Timekeeper"),
 		lipgloss.JoinHorizontal(lipgloss.Left,
-			lipgloss.JoinVertical(lipgloss.Top, t, m.TaskListView()),
+			lipgloss.JoinVertical(lipgloss.Top, t, e),
 			m.EditorView()))
 	return s
 }
@@ -213,14 +219,6 @@ func loadEntries(db *clover.DB) tea.Cmd {
 	log.Infof("Loading entries...")
 	return func() tea.Msg {
 		loadedEntries := dbaccess.LoadEntries(db)
-		return EntriesLoadedMsg{entries: loadedEntries}
+		return l.EntriesLoadedMsg{Entries: loadedEntries}
 	}
-}
-
-func convertEntriesToList(entries []*models.Entry) list.Model {
-	listEntries := make([]list.Item, 0, len(entries))
-	for _, entry := range entries {
-		listEntries = append(listEntries, entry)
-	}
-	return list.New(listEntries, ui.EntryListDelegate{}, 40, 10)
 }
