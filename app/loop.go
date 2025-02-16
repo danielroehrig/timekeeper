@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/danielroehrig/timekeeper/app/ui/editor"
 	l "github.com/danielroehrig/timekeeper/app/ui/list"
 	"github.com/danielroehrig/timekeeper/app/ui/task"
 	"time"
@@ -8,7 +9,6 @@ import (
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/stopwatch"
-	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	dbaccess "github.com/danielroehrig/timekeeper/db"
@@ -33,7 +33,7 @@ type model struct {
 	stopwatch   stopwatch.Model
 	task        task.Model
 	entryList   l.Model
-	description textarea.Model
+	description editor.Model
 	theme       themes.Theme
 	width       int
 	height      int
@@ -49,15 +49,8 @@ type (
 	PrevFocusMsg struct{}
 )
 
-var (
-	inputStyle     = lipgloss.NewStyle()
-	subtextStyle   = lipgloss.NewStyle()
-	borderedWidget = lipgloss.NewStyle().Border(lipgloss.RoundedBorder(), true)
-)
-
 func initialModel(db *clover.DB) model {
 	theme := themes.TokyoNight
-	inputStyle = inputStyle.Bold(false).Foreground(theme.Accent)
 
 	return model{
 		db:          db,
@@ -65,7 +58,7 @@ func initialModel(db *clover.DB) model {
 		task:        task.New(theme),
 		stopwatch:   stopwatch.New(),
 		entryList:   l.New(),
-		description: textarea.New(),
+		description: editor.New(),
 		theme:       themes.TokyoNight,
 		width:       10,
 		height:      10,
@@ -89,7 +82,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case task.StartRunningMsg:
 		log.Debugf("Starting running task: %v", msg)
 		m.runningTask = msg.RunningTask
-		m.description.Focus()
 		m.focused = Editor
 		m.task, cmd = m.task.Update(msg)
 		return m, cmd
@@ -118,7 +110,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			//m.entryList.FilterInput.Focus()
 			m.focused = EntryList
 		case EntryList:
-			m.description.Focus()
 			m.focused = Editor
 		case Editor:
 			m.focused = Task
@@ -149,7 +140,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case list.FilterMatchesMsg:
 		log.Debugf("Filter Matches Message")
 		m.entryList, _ = m.entryList.Update(msg)
-	case UpdateEditorContentsMessage:
+	case editor.UpdateEditorContentsMessage:
 		log.Debugf("Update Editor Contents Message")
 		// TODO is task running? Or is another one selected? how do we keep those apart?
 	}
@@ -173,7 +164,8 @@ func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.task = tm
 		return m, cmd
 	case Editor:
-		return m.handleKeypressEditor(msg)
+		m.description, _ = m.description.Update(msg)
+		return m, nil
 	case EntryList:
 		el, cmd := m.entryList.Update(msg)
 		m.entryList = el
@@ -189,23 +181,24 @@ func (m model) View() string {
 	headline := lipgloss.NewStyle().Bold(true).Foreground(m.theme.AltAccent).PaddingLeft(2).PaddingTop(1).MarginBottom(1)
 	leftWidth := (m.width / 2) - 2
 
-	var t string
-	if m.focused == Task {
+	var t, li, e string
+	t = themes.BorderedWidget.Width(leftWidth).Render(m.task.View())
+	li = themes.BorderedWidget.Width(leftWidth).Render(m.entryList.View())
+	e = themes.BorderedWidget.Width(leftWidth).Render(m.description.View())
+
+	switch m.focused {
+	case Task:
 		t = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(leftWidth).Render(m.task.View())
-	} else {
-		t = themes.BorderedWidget.Width(leftWidth).Render(m.task.View())
-	}
-	var e string
-	if m.focused == EntryList {
-		e = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(leftWidth).Render(m.entryList.View())
-	} else {
-		e = themes.BorderedWidget.Width(leftWidth).Render(m.entryList.View())
+	case EntryList:
+		li = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(leftWidth).Render(m.entryList.View())
+	case Editor:
+		e = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(leftWidth).Render(m.description.View())
 	}
 
 	s := lipgloss.JoinVertical(lipgloss.Top, headline.Render("Timekeeper"),
 		lipgloss.JoinHorizontal(lipgloss.Left,
-			lipgloss.JoinVertical(lipgloss.Top, t, e),
-			m.EditorView()))
+			lipgloss.JoinVertical(lipgloss.Top, t, li),
+			e))
 	return s
 }
 
