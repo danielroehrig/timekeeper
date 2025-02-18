@@ -14,6 +14,7 @@ type StartRunningMsg struct {
 	RunningTask *models.Entry
 }
 type StopRunningTaskMsg struct{}
+type EditRunningTaskMsg struct{}
 
 type state byte
 
@@ -92,10 +93,16 @@ func (m Model) handleKeypressTaskInput(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 
 	} else {
-		if key == tea.KeySpace {
+		switch key {
+		case tea.KeySpace:
 			return m, func() tea.Msg {
 				return StopRunningTaskMsg{}
 			}
+		case tea.KeyEnter:
+			return m, func() tea.Msg {
+				return EditRunningTaskMsg{}
+			}
+
 		}
 		return m, nil
 	}

@@ -66,7 +66,7 @@ func AddEntry(db *clover.DB, e *models.Entry) error {
 	doc := document.NewDocument()
 	doc.Set("name", e.Name)
 	doc.Set("start", e.Start)
-	doc.Set("end", nil)
+	doc.Set("end", e.End)
 	doc.Set("content", e.Content)
 	id, err := db.InsertOne("entries", doc)
 	if err != nil {

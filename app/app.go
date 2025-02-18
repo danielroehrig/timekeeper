@@ -30,6 +30,7 @@ type model struct {
 	db          *clover.DB
 	focused     Focused
 	runningTask *models.Entry
+	dirtyTask   *models.Entry
 	stopwatch   stopwatch.Model
 	task        task.Model
 	entryList   l.Model
@@ -46,7 +47,6 @@ type EntryAddedMsg struct{}
 
 type (
 	NextFocusMsg struct{}
-	PrevFocusMsg struct{}
 )
 
 func initialModel(db *clover.DB) model {
@@ -82,6 +82,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case task.StartRunningMsg:
 		log.Debugf("Starting running task: %v", msg)
 		m.runningTask = msg.RunningTask
+		m.description, _ = m.description.Update(editor.EntryListSelectedMsg{Entry: msg.RunningTask})
 		m.focused = Editor
 		m.task, cmd = m.task.Update(msg)
 		return m, cmd
@@ -105,13 +106,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(dc, te)
 	case NextFocusMsg:
 		log.Debugf("Next Focus Message received: %d", m.focused)
+		m.saveChanges()
 		switch m.focused {
 		case Task:
-			//m.entryList.FilterInput.Focus()
 			m.focused = EntryList
 		case EntryList:
-			m.focused = Editor
+			if m.runningTask != nil {
+				m.description, cmd = m.description.Update(editor.EntryListSelectedMsg{Entry: m.runningTask})
+			}
+			m.focused = Task
 		case Editor:
+			if m.runningTask != nil {
+				m.description, cmd = m.description.Update(editor.EntryListSelectedMsg{Entry: m.runningTask})
+			}
 			m.focused = Task
 		}
 	case task.StopRunningTaskMsg:
@@ -125,6 +132,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		})
 	case AddEntryMsg:
+		log.Debugf("Add Entry Message: %v", msg)
 		err := dbaccess.AddEntry(m.db, m.runningTask)
 		if err != nil {
 			log.Errorf("Error adding entry: %v", err)
@@ -140,21 +148,47 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case list.FilterMatchesMsg:
 		log.Debugf("Filter Matches Message")
 		m.entryList, _ = m.entryList.Update(msg)
-	case editor.UpdateEditorContentsMessage:
-		log.Debugf("Update Editor Contents Message")
-		if m.runningTask != nil {
-			m.runningTask.Content = msg.Value
+	case editor.EntryEditedMsg:
+		if msg.Entry != m.runningTask {
+			log.Debugf("replacing entry: %v", msg.Entry)
+			m.dirtyTask = msg.Entry
 		}
-		// TODO is task running? Or is another one selected? how do we keep those apart?
+	case l.EntryChangedMsg:
+		log.Debugf("Select Entry Message")
+		m.saveChanges()
+		m.description, _ = m.description.Update(editor.EntryListSelectedMsg{Entry: msg.SelectedEntry})
+		return m, nil
+	case l.EntrySelectedMsg:
+		log.Debugf("Edit Entry Message")
+		m.saveChanges()
+		m.focused = Editor
+	case task.EditRunningTaskMsg:
+		m.saveChanges()
+		if m.runningTask != nil {
+			m.description, cmd = m.description.Update(editor.EntryListSelectedMsg{Entry: m.runningTask})
+		}
+		m.focused = Editor
 	}
 	return m, cmd
 }
 
+// todo make async
+func (m *model) saveChanges() tea.Cmd {
+	// Todo error handling, messages, everything
+	if m.dirtyTask != nil {
+		log.Debugf("Saving changes to database")
+		dbaccess.UpdateEntry(m.db, m.dirtyTask)
+		m.dirtyTask = nil
+	}
+	return nil
+}
+
 func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	log.Debugf("new key msg %s and focused was %v", msg.String(), m.focused)
+	//log.Debugf("new key msg %s and focused was %v", msg.String(), m.focused)
 	key := msg.String()
 	switch key {
 	case "ctrl+c":
+		m.saveChanges()
 		return m, tea.Quit
 	case "tab":
 		return m, func() tea.Msg {

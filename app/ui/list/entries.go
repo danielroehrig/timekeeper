@@ -14,6 +14,8 @@ type EntriesLoadedMsg struct {
 	Entries []*models.Entry
 }
 
+type EntrySelectedMsg struct{}
+
 type AddEntryMsg struct {
 	Entry *models.Entry
 }
@@ -51,6 +53,11 @@ func (m Model) View() string {
 func (m Model) handleKeypressTaskList(msg tea.KeyMsg) (Model, tea.Cmd) {
 	v, cmd := m.list.Update(msg)
 	m.list = v
+	if msg.Type == tea.KeyEnter {
+		return m, tea.Batch(cmd, func() tea.Msg {
+			return EntrySelectedMsg{}
+		})
+	}
 	return m, cmd
 }
 

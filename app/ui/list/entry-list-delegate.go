@@ -4,13 +4,17 @@ import (
 	"fmt"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/danielroehrig/timekeeper/log"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/danielroehrig/timekeeper/models"
 	"io"
 	"time"
 )
 
 type EntryListDelegate struct{}
+
+type EntryChangedMsg struct {
+	SelectedEntry *models.Entry
+}
 
 func (d EntryListDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
 	e, ok := item.(*models.Entry)
@@ -23,7 +27,7 @@ func (d EntryListDelegate) Render(w io.Writer, m list.Model, index int, item lis
 	}
 	str := fmt.Sprintf("%d. %s - %s", index+1, e.Name, dur.Round(time.Second))
 	if m.Index() == index {
-		str = fmt.Sprintf(">> %s", str)
+		str = lipgloss.NewStyle().Foreground(lipgloss.Color("#bb9af7")).Render(str)
 	}
 	fmt.Fprint(w, str)
 }
@@ -37,6 +41,9 @@ func (d EntryListDelegate) Spacing() int {
 }
 
 func (d EntryListDelegate) Update(_ tea.Msg, m *list.Model) tea.Cmd {
-	log.Debugf("list update %d", m.Index())
-	return nil
+	return func() tea.Msg {
+		return EntryChangedMsg{
+			SelectedEntry: m.SelectedItem().(*models.Entry),
+		}
+	}
 }
