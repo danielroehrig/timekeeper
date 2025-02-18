@@ -34,7 +34,7 @@ type model struct {
 	stopwatch   stopwatch.Model
 	task        task.Model
 	entryList   l.Model
-	description editor.Model
+	editor      editor.Model
 	theme       themes.Theme
 	width       int
 	height      int
@@ -44,24 +44,20 @@ type AddEntryMsg struct {
 	Entry *models.Entry
 }
 type EntryAddedMsg struct{}
-
-type (
-	NextFocusMsg struct{}
-)
+type NextFocusMsg struct{}
 
 func initialModel(db *clover.DB) model {
 	theme := themes.TokyoNight
-
 	return model{
-		db:          db,
-		focused:     Task,
-		task:        task.New(theme),
-		stopwatch:   stopwatch.New(),
-		entryList:   l.New(),
-		description: editor.New(),
-		theme:       themes.TokyoNight,
-		width:       10,
-		height:      10,
+		db:        db,
+		focused:   Task,
+		task:      task.New(theme),
+		stopwatch: stopwatch.New(),
+		entryList: l.New(),
+		editor:    editor.New(),
+		theme:     themes.TokyoNight,
+		width:     10,
+		height:    10,
 	}
 }
 
@@ -82,7 +78,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case task.StartRunningMsg:
 		log.Debugf("Starting running task: %v", msg)
 		m.runningTask = msg.RunningTask
-		m.description, _ = m.description.Update(editor.EntryListSelectedMsg{Entry: msg.RunningTask})
+		m.editor, _ = m.editor.Update(editor.EntryListSelectedMsg{Entry: msg.RunningTask})
 		m.focused = Editor
 		m.task, cmd = m.task.Update(msg)
 		return m, cmd
@@ -101,7 +97,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Textarea should also process cursor blinks.
 		// todo only the active input should have the blink animation
 		var dc, te tea.Cmd
-		m.description, dc = m.description.Update(msg)
+		m.editor, dc = m.editor.Update(msg)
 		m.task, te = m.task.Update(msg)
 		return m, tea.Batch(dc, te)
 	case NextFocusMsg:
@@ -112,12 +108,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focused = EntryList
 		case EntryList:
 			if m.runningTask != nil {
-				m.description, cmd = m.description.Update(editor.EntryListSelectedMsg{Entry: m.runningTask})
+				m.editor, cmd = m.editor.Update(editor.EntryListSelectedMsg{Entry: m.runningTask})
 			}
 			m.focused = Task
 		case Editor:
 			if m.runningTask != nil {
-				m.description, cmd = m.description.Update(editor.EntryListSelectedMsg{Entry: m.runningTask})
+				m.editor, cmd = m.editor.Update(editor.EntryListSelectedMsg{Entry: m.runningTask})
 			}
 			m.focused = Task
 		}
@@ -156,7 +152,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case l.EntryChangedMsg:
 		log.Debugf("Select Entry Message")
 		m.saveChanges()
-		m.description, _ = m.description.Update(editor.EntryListSelectedMsg{Entry: msg.SelectedEntry})
+		m.editor, _ = m.editor.Update(editor.EntryListSelectedMsg{Entry: msg.SelectedEntry})
 		return m, nil
 	case l.EntrySelectedMsg:
 		log.Debugf("Edit Entry Message")
@@ -165,7 +161,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case task.EditRunningTaskMsg:
 		m.saveChanges()
 		if m.runningTask != nil {
-			m.description, cmd = m.description.Update(editor.EntryListSelectedMsg{Entry: m.runningTask})
+			m.editor, cmd = m.editor.Update(editor.EntryListSelectedMsg{Entry: m.runningTask})
 		}
 		m.focused = Editor
 	}
@@ -202,7 +198,7 @@ func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	case Editor:
 		var cmd tea.Cmd
-		m.description, cmd = m.description.Update(msg)
+		m.editor, cmd = m.editor.Update(msg)
 		return m, cmd
 	case EntryList:
 		el, cmd := m.entryList.Update(msg)
@@ -222,7 +218,7 @@ func (m model) View() string {
 	var t, li, e string
 	t = themes.BorderedWidget.Width(leftWidth).Render(m.task.View())
 	li = themes.BorderedWidget.Width(leftWidth).Render(m.entryList.View())
-	e = themes.BorderedWidget.Width(leftWidth).Render(m.description.View())
+	e = themes.BorderedWidget.Width(leftWidth).Render(m.editor.View())
 
 	switch m.focused {
 	case Task:
@@ -230,7 +226,7 @@ func (m model) View() string {
 	case EntryList:
 		li = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(leftWidth).Render(m.entryList.View())
 	case Editor:
-		e = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(leftWidth).Render(m.description.View())
+		e = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(leftWidth).Render(m.editor.View())
 	}
 
 	s := lipgloss.JoinVertical(lipgloss.Top, headline.Render("Timekeeper"),
