@@ -54,7 +54,7 @@ func initialModel(db *clover.DB) model {
 		focused:   Task,
 		task:      task.New(theme),
 		stopwatch: stopwatch.New(),
-		entryList: l.New(),
+		entryList: l.New(theme),
 		editor:    editor.New(),
 		theme:     theme,
 		width:     10,

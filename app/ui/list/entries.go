@@ -4,10 +4,12 @@ import (
 	bl "github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/danielroehrig/timekeeper/models"
+	"github.com/danielroehrig/timekeeper/themes"
 )
 
 type Model struct {
-	list bl.Model
+	list  bl.Model
+	theme themes.Theme
 }
 
 type EntriesLoadedMsg struct {
@@ -24,11 +26,12 @@ func (m Model) Init() tea.Cmd {
 	return nil
 }
 
-func New() Model {
-	entries := make([]bl.Item, 0)
-	entryList := bl.New(entries, EntryListDelegate{}, 40, 10)
+func New(theme themes.Theme) Model {
+	delegates := NewEntryListDelegate(theme)
+	entryList := bl.New(nil, delegates, 40, 10)
 	return Model{
-		list: entryList,
+		list:  entryList,
+		theme: theme,
 	}
 }
 
@@ -37,7 +40,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKeypressTaskList(msg)
 	case EntriesLoadedMsg:
-		m.list = convertEntriesToList(msg.Entries)
+		m.list = convertEntriesToList(msg.Entries, m.theme)
 		return m, nil
 	case AddEntryMsg:
 		return m, m.list.InsertItem(0, msg.Entry)
@@ -61,12 +64,15 @@ func (m Model) handleKeypressTaskList(msg tea.KeyMsg) (Model, tea.Cmd) {
 	return m, cmd
 }
 
-func convertEntriesToList(entries []*models.Entry) bl.Model {
+func convertEntriesToList(entries []*models.Entry, theme themes.Theme) bl.Model {
 	listEntries := make([]bl.Item, 0, len(entries))
 	for _, entry := range entries {
 		listEntries = append(listEntries, entry)
 	}
-	return bl.New(listEntries, EntryListDelegate{}, 40, 10)
+	m := bl.New(listEntries, NewEntryListDelegate(theme), 40, 20)
+	m.SetShowStatusBar(false)
+	m.SetShowTitle(false)
+	return m
 }
 
 func (m Model) StatusBar() string {
