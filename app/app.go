@@ -211,8 +211,6 @@ func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	//log.Debugf("main view called")
-	headline := lipgloss.NewStyle().Bold(true).Foreground(m.theme.AltAccent).PaddingLeft(2).PaddingTop(1).MarginBottom(1)
 	leftWidth := (m.width / 2) - 2
 
 	var t, li, e string
@@ -229,10 +227,9 @@ func (m model) View() string {
 		e = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(leftWidth).Render(m.editor.View())
 	}
 
-	s := lipgloss.JoinVertical(lipgloss.Top, headline.Render("Timekeeper"),
-		lipgloss.JoinHorizontal(lipgloss.Left,
-			lipgloss.JoinVertical(lipgloss.Top, t, li),
-			e))
+	s := lipgloss.JoinHorizontal(lipgloss.Left,
+		lipgloss.JoinVertical(lipgloss.Top, t, li),
+		e)
 	return s
 }
 
