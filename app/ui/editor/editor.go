@@ -46,6 +46,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 func (m Model) View() string {
 	return m.content.View()
 }
+
+func (m Model) StatusBar() string {
+	return "<tab> current task"
+}
+
 func (m Model) handleKeypressEditor(msg tea.KeyMsg) (Model, tea.Cmd) {
 	v, _ := m.content.Update(msg)
 	m.content = v

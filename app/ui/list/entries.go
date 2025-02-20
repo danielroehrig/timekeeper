@@ -68,3 +68,7 @@ func convertEntriesToList(entries []*models.Entry) bl.Model {
 	}
 	return bl.New(listEntries, EntryListDelegate{}, 40, 10)
 }
+
+func (m Model) StatusBar() string {
+	return "see list"
+}

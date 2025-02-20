@@ -128,6 +128,14 @@ func (m Model) View() string {
 	}
 }
 
+func (m Model) StatusBar() string {
+	if m.state == input {
+		return "<enter> start"
+	} else {
+		return "<space> stop \uF444 <enter> edit \uF444 <tab> list"
+	}
+}
+
 func (m Model) viewRunningTask() string {
 	elapsed := time.Since(m.runningTask.Start).Round(time.Second).String()
 	left := m.spinner.View() + " " + m.theme.AccentStyle().Render(m.runningTask.Name)

@@ -233,6 +233,17 @@ func (m model) View() string {
 	s := lipgloss.JoinHorizontal(lipgloss.Left,
 		lipgloss.JoinVertical(lipgloss.Top, t, li),
 		e)
+	status := "Timekeeper \uF444 "
+	switch m.focused {
+	case Task:
+		status = status + m.task.StatusBar()
+	case EntryList:
+		status = status + m.entryList.StatusBar()
+	case Editor:
+		status = status + m.editor.StatusBar()
+	}
+	s = lipgloss.JoinVertical(
+		lipgloss.Left, s, m.theme.SubtextStyle().PaddingLeft(1).Render(status))
 	return s
 }
 
