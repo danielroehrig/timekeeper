@@ -57,3 +57,7 @@ func (t TokyoNight) WidgetStyle() lipgloss.Style {
 func (t TokyoNight) ActiveWidgetStyle() lipgloss.Style {
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder(), true).BorderForeground(t.accent)
 }
+
+func (t TokyoNight) AccentStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(t.accent).Bold(true)
+}

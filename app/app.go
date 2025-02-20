@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/danielroehrig/timekeeper/app/ui/editor"
 	l "github.com/danielroehrig/timekeeper/app/ui/list"
 	"github.com/danielroehrig/timekeeper/app/ui/task"
@@ -62,7 +63,7 @@ func initialModel(db *clover.DB) model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Sequence(loadEntries(m.db), m.stopwatch.Init(), m.stopwatch.Start(), cursor.Blink)
+	return tea.Sequence(loadEntries(m.db), m.stopwatch.Init(), m.stopwatch.Start(), cursor.Blink, m.task.Init())
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -164,6 +165,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.editor, cmd = m.editor.Update(editor.EntryListSelectedMsg{Entry: m.runningTask})
 		}
 		m.focused = Editor
+	case spinner.TickMsg:
+		m.task, cmd = m.task.Update(msg)
 	}
 	return m, cmd
 }

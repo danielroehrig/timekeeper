@@ -12,4 +12,5 @@ type Theme interface {
 	SubtextStyle() lipgloss.Style
 	WidgetStyle() lipgloss.Style
 	ActiveWidgetStyle() lipgloss.Style
+	AccentStyle() lipgloss.Style
 }

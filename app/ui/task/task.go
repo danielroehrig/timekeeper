@@ -2,6 +2,7 @@ package task
 
 import (
 	"github.com/charmbracelet/bubbles/cursor"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -30,11 +31,15 @@ type Model struct {
 	focused     bool
 	width       int
 	theme       themes.Theme
+	spinner     spinner.Model
 }
 
 func New(theme themes.Theme) Model {
 	i := textinput.New()
 	i.Prompt = " "
+	s := spinner.New()
+	s.Spinner = spinner.Jump
+	s.Style = lipgloss.NewStyle().Foreground(theme.Accent())
 	m := Model{
 		state:       input,
 		task:        i,
@@ -42,6 +47,7 @@ func New(theme themes.Theme) Model {
 		focused:     true,
 		width:       10,    // might be needed to tweak max input characters or placeholder message
 		theme:       theme, // might be needed to style inner components
+		spinner:     s,
 	}
 	m.task.Placeholder = "Tell me what you are doing"
 	m.task.Focus()
@@ -49,7 +55,7 @@ func New(theme themes.Theme) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return nil
+	return m.spinner.Tick
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
@@ -71,6 +77,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.task.Reset()
 		m.runningTask = nil
 		return m, nil
+	case spinner.TickMsg:
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
 	}
 	return m, nil
 }
@@ -115,7 +124,12 @@ func (m Model) View() string {
 	if m.state == input {
 		return m.task.View()
 	} else {
-		elapsed := time.Since(m.runningTask.Start).Round(time.Second).String()
-		return lipgloss.JoinVertical(lipgloss.Left, m.theme.NormalStyle().Render(m.runningTask.Name), m.theme.SubtextStyle().Render(elapsed))
+		return m.viewRunningTask()
 	}
+}
+
+func (m Model) viewRunningTask() string {
+	elapsed := time.Since(m.runningTask.Start).Round(time.Second).String()
+	left := m.spinner.View() + " " + m.theme.AccentStyle().Render(m.runningTask.Name)
+	return lipgloss.JoinVertical(lipgloss.Left, left, m.theme.SubtextStyle().PaddingLeft(2).Render(elapsed))
 }
