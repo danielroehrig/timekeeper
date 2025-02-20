@@ -1,19 +1,22 @@
 # This workflow will build a golang project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
 
-name: 'Build Tagged'
+name: Test
 
 on:
+  pull_request:
+    types: [opened, reopened]
   push:
-    tags:
-    - 'v*'
+    branches:
+    - 'ci/*'
+    - 'main'
 jobs:
 
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-
+    - name: checkout
+      uses: actions/checkout@v4
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
@@ -24,13 +27,3 @@ jobs:
       run: go get .
     - name: Test
       run: go test -v ./...
-
-    - name: Build
-      run: go build -v -o timekeeper main.go
-
-    - name: Upload Release Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: timekeeper-${{ github.ref_name }}
-        path: timekeeper
-
