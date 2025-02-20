@@ -33,9 +33,11 @@ type Model struct {
 }
 
 func New(theme themes.Theme) Model {
+	i := textinput.New()
+	i.Prompt = " "
 	m := Model{
 		state:       input,
-		task:        textinput.New(),
+		task:        i,
 		runningTask: nil,
 		focused:     true,
 		width:       10,    // might be needed to tweak max input characters or placeholder message
@@ -102,9 +104,10 @@ func (m Model) handleKeypressTaskInput(msg tea.KeyMsg) (Model, tea.Cmd) {
 			return m, func() tea.Msg {
 				return EditRunningTaskMsg{}
 			}
+		default:
+			return m, nil
 
 		}
-		return m, nil
 	}
 }
 
@@ -113,6 +116,6 @@ func (m Model) View() string {
 		return m.task.View()
 	} else {
 		elapsed := time.Since(m.runningTask.Start).Round(time.Second).String()
-		return lipgloss.JoinVertical(lipgloss.Left, themes.InputStyle.Render(m.runningTask.Name), themes.SubtextStyle.Render(elapsed))
+		return lipgloss.JoinVertical(lipgloss.Left, m.theme.NormalStyle().Render(m.runningTask.Name), m.theme.SubtextStyle().Render(elapsed))
 	}
 }

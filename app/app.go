@@ -47,7 +47,7 @@ type EntryAddedMsg struct{}
 type NextFocusMsg struct{}
 
 func initialModel(db *clover.DB) model {
-	theme := themes.TokyoNight
+	theme := themes.NewTokyoNight()
 	return model{
 		db:        db,
 		focused:   Task,
@@ -55,7 +55,7 @@ func initialModel(db *clover.DB) model {
 		stopwatch: stopwatch.New(),
 		entryList: l.New(),
 		editor:    editor.New(),
-		theme:     themes.TokyoNight,
+		theme:     theme,
 		width:     10,
 		height:    10,
 	}
@@ -180,7 +180,6 @@ func (m *model) saveChanges() tea.Cmd {
 }
 
 func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	//log.Debugf("new key msg %s and focused was %v", msg.String(), m.focused)
 	key := msg.String()
 	switch key {
 	case "ctrl+c":
@@ -212,19 +211,20 @@ func (m model) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	leftWidth := (m.width / 2) - 2
+	rightWidth := leftWidth
 
 	var t, li, e string
-	t = themes.BorderedWidget.Width(leftWidth).Render(m.task.View())
-	li = themes.BorderedWidget.Width(leftWidth).Render(m.entryList.View())
-	e = themes.BorderedWidget.Width(leftWidth).Render(m.editor.View())
+	t = m.theme.WidgetStyle().Width(leftWidth).Render(m.task.View())
+	li = m.theme.WidgetStyle().Width(leftWidth).Render(m.entryList.View())
+	e = m.theme.WidgetStyle().Width(leftWidth).Render(m.editor.View())
 
 	switch m.focused {
 	case Task:
-		t = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(leftWidth).Render(m.task.View())
+		t = m.theme.ActiveWidgetStyle().Width(leftWidth).Render(m.task.View())
 	case EntryList:
-		li = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(leftWidth).Render(m.entryList.View())
+		li = m.theme.ActiveWidgetStyle().Width(leftWidth).Render(m.entryList.View())
 	case Editor:
-		e = themes.BorderedWidget.BorderForeground(m.theme.Accent).Width(leftWidth).Render(m.editor.View())
+		e = m.theme.ActiveWidgetStyle().Width(rightWidth).Render(m.editor.View())
 	}
 
 	s := lipgloss.JoinHorizontal(lipgloss.Left,
