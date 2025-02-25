@@ -72,6 +72,7 @@ func convertEntriesToList(entries []*models.Entry, theme themes.Theme) bl.Model 
 	m := bl.New(listEntries, NewEntryListDelegate(theme), 40, 20)
 	m.SetShowStatusBar(false)
 	m.SetShowTitle(false)
+	m.SetShowHelp(false)
 	return m
 }
 

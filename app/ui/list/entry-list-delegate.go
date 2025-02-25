@@ -41,9 +41,15 @@ func (d EntryListDelegate) Render(w io.Writer, m list.Model, index int, item lis
 	} else if e.Start.YearDay() == now.YearDay()-1 && e.Start.Year() == now.Year() {
 		dateString = "yesterday"
 	} else {
-		dateString = e.Start.Format("2006-02-01")
+		dateString = e.Start.Format("2006-01-02")
 	}
-	dateString = d.theme.SubtextStyle().Render(fmt.Sprintf("%s: %s", dateString, dur.Round(time.Minute)))
+	var endTime string
+	if e.End != nil {
+		endTime = e.End.Format("15:04")
+	} else {
+		endTime = "unknown"
+	}
+	dateString = d.theme.SubtextStyle().Render(fmt.Sprintf("%s %s - %s: %s", dateString, e.Start.Format("15:04"), endTime, dur.Round(time.Minute)))
 	var taskString string
 	if m.Index() == index {
 		taskString = d.theme.AccentStyle().Render(e.Name)
