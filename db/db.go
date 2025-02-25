@@ -47,7 +47,7 @@ func OpenDatabase() *clover.DB {
 }
 
 func LoadEntries(db *clover.DB) []*models.Entry {
-	docs, err := db.FindAll(query.NewQuery(collectionName))
+	docs, err := db.FindAll(query.NewQuery(collectionName).Sort(query.SortOption{Field: "start", Direction: -1}))
 	if err != nil {
 		log.Errorf("could not list entries. Aborting. %s", err)
 	}
